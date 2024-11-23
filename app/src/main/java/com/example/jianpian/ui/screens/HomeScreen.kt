@@ -65,6 +65,7 @@ fun HomeScreen(
     
     LaunchedEffect(Unit) {
         viewModel.loadPlayHistories(context)
+        viewModel.loadFavorites(context)
     }
     
     LaunchedEffect(currentEpisode) {
@@ -93,127 +94,205 @@ fun HomeScreen(
         }
     }
     
-    when {
-        currentEpisode != null && currentMovie != null -> {
-            VideoPlayerScreen(
-                movieDetail = currentMovie!!,
-                currentEpisode = currentEpisode!!,
-                onPreviousEpisode = {
-                    val index = currentMovie!!.episodes.indexOf(currentEpisode)
-                    if (index > 0) {
-                        currentEpisode = currentMovie!!.episodes[index - 1]
-                    }
-                },
-                onNextEpisode = {
-                    val index = currentMovie!!.episodes.indexOf(currentEpisode)
-                    if (index < currentMovie!!.episodes.size - 1) {
-                        currentEpisode = currentMovie!!.episodes[index + 1]
-                    }
-                },
-                onBackClick = {
-                    currentEpisode = null
-                }
-            )
-        }
-        showDetail && currentMovie != null -> {
-            DetailScreen(
-                movieDetail = currentMovie!!,
-                onPlayClick = { episode ->
-                    currentEpisode = episode
-                },
-                onBackClick = {
-                    showDetail = false
-                }
-            )
-        }
-        else -> {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp)
-            ) {
-                // Search bar
-                BasicTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color.DarkGray.copy(alpha = 0.3f))
-                        .padding(16.dp)
-                        .focusable(),
-                    decorationBox = { innerTextField ->
-                        Box(
-                            modifier = Modifier.fillMaxWidth(),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            if (searchQuery.isEmpty()) {
-                                Text(
-                                    text = "搜索电影...",
-                                    color = Color.Gray
-                                )
-                            }
-                            innerTextField()
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        when {
+            currentEpisode != null && currentMovie != null -> {
+                VideoPlayerScreen(
+                    movieDetail = currentMovie!!,
+                    currentEpisode = currentEpisode!!,
+                    onPreviousEpisode = {
+                        val index = currentMovie!!.episodes.indexOf(currentEpisode)
+                        if (index > 0) {
+                            currentEpisode = currentMovie!!.episodes[index - 1]
                         }
                     },
-                    keyboardOptions = KeyboardOptions(
-                        imeAction = ImeAction.Search
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onSearch = {
-                            viewModel.searchMovies(searchQuery)
+                    onNextEpisode = {
+                        val index = currentMovie!!.episodes.indexOf(currentEpisode)
+                        if (index < currentMovie!!.episodes.size - 1) {
+                            currentEpisode = currentMovie!!.episodes[index + 1]
                         }
-                    )
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                if (isLoading) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("加载中...")
+                    },
+                    onBackClick = {
+                        currentEpisode = null
                     }
-                } else {
-                    if (searchQuery.isEmpty() && histories.isNotEmpty()) {
-                        Column {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                )
+            }
+            showDetail && currentMovie != null -> {
+                DetailScreen(
+                    movieDetail = currentMovie!!,
+                    onPlayClick = { episode ->
+                        currentEpisode = episode
+                    },
+                    onBackClick = {
+                        showDetail = false
+                    }
+                )
+            }
+            else -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                ) {
+                    // Search bar
+                    BasicTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color.DarkGray.copy(alpha = 0.3f))
+                            .padding(16.dp)
+                            .focusable(),
+                        decorationBox = { innerTextField ->
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.CenterStart
                             ) {
-                                Text(
-                                    text = "播放历史",
-                                    fontSize = 20.sp
-                                )
-                                
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Button(
-                                        onClick = {
-                                            // 如果有历史记录，直接继续播放最近的一个
-                                            histories.firstOrNull()?.let { history ->
-                                                viewModel.getMovieDetail(history.movie.id)
-                                                showDetail = true
+                                if (searchQuery.isEmpty()) {
+                                    Text(
+                                        text = "搜索电影...",
+                                        color = Color.Gray
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        },
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            color = Color.White
+                        ),
+                        keyboardOptions = KeyboardOptions(
+                            imeAction = ImeAction.Search
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onSearch = {
+                                viewModel.searchMovies(searchQuery)
+                            }
+                        )
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    if (isLoading) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("加载中...", color = Color.White)
+                        }
+                    } else {
+                        if (searchQuery.isEmpty()) {
+                            Column {
+                                // 收藏列表
+                                val favorites by viewModel.favorites.collectAsState()
+                                if (favorites.isNotEmpty()) {
+                                    Column {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 8.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "我的收藏",
+                                                fontSize = 20.sp
+                                            )
+                                            
+                                            Button(
+                                                onClick = {
+                                                    viewModel.clearFavorites(context)
+                                                }
+                                            ) {
+                                                Text("清除收藏")
                                             }
                                         }
-                                    ) {
-                                        Text("继续观看")
-                                    }
-                                    
-                                    Button(
-                                        onClick = {
-                                            viewModel.clearPlayHistories(context)
+                                        
+                                        TvLazyVerticalGrid(
+                                            columns = TvGridCells.Fixed(8),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                                            contentPadding = PaddingValues(horizontal = 8.dp),
+                                            modifier = Modifier.height(280.dp)
+                                        ) {
+                                            items(favorites) { favorite ->
+                                                MovieCard(
+                                                    movie = favorite.movie,
+                                                    onClick = {
+                                                        viewModel.getMovieDetail(favorite.movie.id)
+                                                        showDetail = true
+                                                    }
+                                                )
+                                            }
                                         }
-                                    ) {
-                                        Text("清除历史")
+                                    }
+                                }
+
+                                // 播放历史
+                                if (histories.isNotEmpty()) {
+                                    Column {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 8.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "播放历史",
+                                                fontSize = 20.sp
+                                            )
+                                            
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                Button(
+                                                    onClick = {
+                                                        // 如果有历史记录，直接继续播放最近的一个
+                                                        histories.firstOrNull()?.let { history ->
+                                                            viewModel.getMovieDetail(history.movie.id)
+                                                            showDetail = true
+                                                        }
+                                                    }
+                                                ) {
+                                                    Text("继续观看")
+                                                }
+                                                
+                                                Button(
+                                                    onClick = {
+                                                        viewModel.clearPlayHistories(context)
+                                                    }
+                                                ) {
+                                                    Text("清除历史")
+                                                }
+                                            }
+                                        }
+                                        
+                                        TvLazyVerticalGrid(
+                                            columns = TvGridCells.Fixed(8),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                                            contentPadding = PaddingValues(horizontal = 8.dp),
+                                            modifier = Modifier.fillMaxSize()
+                                        ) {
+                                            items(histories) { history ->
+                                                MovieCard(
+                                                    movie = history.movie,
+                                                    subtitle = history.episodeName,
+                                                    onClick = {
+                                                        viewModel.getMovieDetail(history.movie.id)
+                                                        showDetail = true
+                                                    }
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
-                            
+                        } else {
                             TvLazyVerticalGrid(
                                 columns = TvGridCells.Fixed(8),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -221,34 +300,15 @@ fun HomeScreen(
                                 contentPadding = PaddingValues(horizontal = 8.dp),
                                 modifier = Modifier.fillMaxSize()
                             ) {
-                                items(histories) { history ->
+                                items(movies) { movie ->
                                     MovieCard(
-                                        movie = history.movie,
-                                        subtitle = history.episodeName,
+                                        movie = movie,
                                         onClick = {
-                                            viewModel.getMovieDetail(history.movie.id)
+                                            viewModel.getMovieDetail(movie.id)
                                             showDetail = true
                                         }
                                     )
                                 }
-                            }
-                        }
-                    } else if (searchQuery.isNotEmpty()) {
-                        TvLazyVerticalGrid(
-                            columns = TvGridCells.Fixed(8),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp),
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            items(movies) { movie ->
-                                MovieCard(
-                                    movie = movie,
-                                    onClick = {
-                                        viewModel.getMovieDetail(movie.id)
-                                        showDetail = true
-                                    }
-                                )
                             }
                         }
                     }

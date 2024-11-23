@@ -10,6 +10,8 @@ import com.example.jianpian.data.PlayHistory
 import com.example.jianpian.network.ApiService
 import com.example.jianpian.network.HtmlParser
 import com.example.jianpian.data.PlayHistoryManager
+import com.example.jianpian.data.Favorite
+import com.example.jianpian.data.FavoriteManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -36,6 +38,9 @@ class HomeViewModel : ViewModel() {
     
     private val _playUrls = MutableStateFlow<Map<String, String>>(emptyMap())
     val playUrls: StateFlow<Map<String, String>> = _playUrls
+    
+    private val _favorites = MutableStateFlow<List<Favorite>>(emptyList())
+    val favorites: StateFlow<List<Favorite>> = _favorites
     
     private val okHttpClient = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -195,6 +200,34 @@ class HomeViewModel : ViewModel() {
             Log.d("HomeViewModel", "Clearing play histories")
             PlayHistoryManager.clearHistories(context)
             loadPlayHistories(context)  // 重新加载以更新UI
+        }
+    }
+
+    fun loadFavorites(context: Context) {
+        viewModelScope.launch {
+            _favorites.value = FavoriteManager.getFavorites(context)
+        }
+    }
+
+    fun toggleFavorite(context: Context, movie: Movie) {
+        viewModelScope.launch {
+            if (FavoriteManager.isFavorite(context, movie.id)) {
+                FavoriteManager.removeFavorite(context, movie.id)
+            } else {
+                FavoriteManager.saveFavorite(context, Favorite(movie))
+            }
+            loadFavorites(context)
+        }
+    }
+
+    fun isFavorite(context: Context, movieId: String): Boolean {
+        return FavoriteManager.isFavorite(context, movieId)
+    }
+
+    fun clearFavorites(context: Context) {
+        viewModelScope.launch {
+            FavoriteManager.clearFavorites(context)
+            loadFavorites(context)
         }
     }
 } 
