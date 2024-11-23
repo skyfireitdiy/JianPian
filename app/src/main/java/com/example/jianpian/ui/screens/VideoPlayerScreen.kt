@@ -25,6 +25,12 @@ import android.util.Log
 import okhttp3.OkHttpClient
 import androidx.media3.datasource.DefaultHttpDataSource
 import java.util.concurrent.TimeUnit
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.tv.foundation.lazy.list.TvLazyRow
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -36,17 +42,11 @@ fun VideoPlayerScreen(
     onBackClick: () -> Unit,
     viewModel: HomeViewModel = viewModel()
 ) {
-    var showControls by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    val playUrl by viewModel.currentPlayUrl.collectAsState()
+    val playUrls by viewModel.playUrls.collectAsState()
     
-    val okHttpClient = remember {
-        OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
-            .build()
-    }
+    var playerView by remember { mutableStateOf<PlayerView?>(null) }
+    var isControllerShowing by remember { mutableStateOf(false) }
     
     val exoPlayer = remember {
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
@@ -60,18 +60,33 @@ fun VideoPlayerScreen(
             .apply {
                 repeatMode = Player.REPEAT_MODE_OFF
                 playWhenReady = true
+                
+                addListener(object : Player.Listener {
+                    override fun onPlaybackStateChanged(state: Int) {
+                        if (state == Player.STATE_ENDED) {
+                            val currentIndex = movieDetail.episodes.indexOf(currentEpisode)
+                            if (currentIndex < movieDetail.episodes.size - 1) {
+                                onNextEpisode()
+                            }
+                        }
+                    }
+                })
             }
     }
 
-    LaunchedEffect(currentEpisode) {
-        viewModel.getPlayUrl(currentEpisode.url)
-    }
-
-    LaunchedEffect(playUrl) {
-        if (playUrl.isNotEmpty()) {
-            Log.d("VideoPlayer", "Setting media item: $playUrl")
-            exoPlayer.setMediaItem(MediaItem.fromUri(playUrl))
-            exoPlayer.prepare()
+    LaunchedEffect(playUrls) {
+        if (playUrls.isNotEmpty()) {
+            exoPlayer.clearMediaItems()
+            movieDetail.episodes.forEach { episode ->
+                playUrls[episode.url]?.let { url ->
+                    exoPlayer.addMediaItem(MediaItem.fromUri(url))
+                }
+            }
+            val currentIndex = movieDetail.episodes.indexOf(currentEpisode)
+            if (currentIndex >= 0) {
+                exoPlayer.seekTo(currentIndex, 0)
+                exoPlayer.prepare()
+            }
         }
     }
 
@@ -85,58 +100,51 @@ fun VideoPlayerScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
+            .focusable(true)
+            .onKeyEvent { event ->
+                when (event.nativeKeyEvent.keyCode) {
+                    android.view.KeyEvent.KEYCODE_BACK -> {
+                        onBackClick()
+                        true
+                    }
+                    android.view.KeyEvent.KEYCODE_DPAD_CENTER,
+                    android.view.KeyEvent.KEYCODE_ENTER -> {
+                        playerView?.apply {
+                            if (isControllerShowing) {
+                                hideController()
+                                isControllerShowing = false
+                            } else {
+                                showController()
+                                isControllerShowing = true
+                            }
+                        }
+                        true
+                    }
+                    else -> false
+                }
+            }
     ) {
-        // Video Player
         AndroidView(
             factory = { context ->
                 PlayerView(context).apply {
                     player = exoPlayer
                     layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
-                    setShowNextButton(false)
-                    setShowPreviousButton(false)
+                    setShowNextButton(true)
+                    setShowPreviousButton(true)
+                    controllerShowTimeoutMs = 3000
+                    controllerHideOnTouch = true
+                    useController = true
+                    
+                    setControllerVisibilityListener(
+                        PlayerView.ControllerVisibilityListener { visibility ->
+                            isControllerShowing = visibility == android.view.View.VISIBLE
+                        }
+                    )
+                    
+                    playerView = this
                 }
             },
             modifier = Modifier.fillMaxSize()
         )
-
-        // Controls overlay
-        if (showControls) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.5f))
-            ) {
-                Row(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Button(onClick = onBackClick) {
-                        Text("返回")
-                    }
-                    Button(
-                        onClick = onPreviousEpisode,
-                        enabled = movieDetail.episodes.indexOf(currentEpisode) > 0
-                    ) {
-                        Text("上一集")
-                    }
-                    Button(
-                        onClick = onNextEpisode,
-                        enabled = movieDetail.episodes.indexOf(currentEpisode) < movieDetail.episodes.size - 1
-                    ) {
-                        Text("下一集")
-                    }
-                }
-
-                Text(
-                    text = "${movieDetail.title} - ${currentEpisode.name}",
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(16.dp),
-                    color = Color.White
-                )
-            }
-        }
     }
 } 

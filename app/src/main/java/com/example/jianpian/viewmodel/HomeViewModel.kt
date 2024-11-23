@@ -28,6 +28,9 @@ class HomeViewModel : ViewModel() {
     private val _currentPlayUrl = MutableStateFlow<String>("")
     val currentPlayUrl: StateFlow<String> = _currentPlayUrl
     
+    private val _playUrls = MutableStateFlow<Map<String, String>>(emptyMap())
+    val playUrls: StateFlow<Map<String, String>> = _playUrls
+    
     private val okHttpClient = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
@@ -70,6 +73,16 @@ class HomeViewModel : ViewModel() {
                 val response = apiService.getMovieDetail(id)
                 val movieDetail = HtmlParser.parseMovieDetail(response)
                 _currentMovie.value = movieDetail
+                
+                // 预加载所有播放链接
+                val urls = mutableMapOf<String, String>()
+                movieDetail.episodes.forEach { episode ->
+                    val playUrl = getPlayUrl(episode.url)
+                    if (playUrl.isNotEmpty()) {
+                        urls[episode.url] = playUrl
+                    }
+                }
+                _playUrls.value = urls
             } catch (e: Exception) {
                 Log.e("HomeViewModel", "Error getting movie detail", e)
             } finally {
