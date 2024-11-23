@@ -1,6 +1,7 @@
 package com.example.jianpian
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.addCallback
@@ -14,8 +15,13 @@ import com.example.jianpian.ui.theme.JianPianTheme
 import com.example.jianpian.ui.screens.HomeScreen
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.jianpian.viewmodel.HomeViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    private var backPressedTime = 0L
+    private val backPressedInterval = 2000L
+
     @OptIn(ExperimentalTvMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,6 +37,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val viewModel: HomeViewModel = viewModel()
             var currentScreen by remember { mutableStateOf(Screen.Home) }
+            val scope = rememberCoroutineScope()
 
             JianPianTheme {
                 Surface(
@@ -41,11 +48,22 @@ class MainActivity : ComponentActivity() {
                         onBackPressed = {
                             when (currentScreen) {
                                 Screen.Home -> {
-                                    // 如果在主页，则退出应用
-                                    finish()
+                                    // 在主页面实现双击退出
+                                    val currentTime = System.currentTimeMillis()
+                                    if (currentTime - backPressedTime > backPressedInterval) {
+                                        backPressedTime = currentTime
+                                        scope.launch {
+                                            Toast.makeText(
+                                                this@MainActivity,
+                                                "再按一次退出应用",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    } else {
+                                        finish()
+                                    }
                                 }
                                 else -> {
-                                    // 否则返回主页
                                     currentScreen = Screen.Home
                                 }
                             }
