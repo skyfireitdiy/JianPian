@@ -13,4 +13,11 @@ interface ApiService {
     
     @GET("jpvod/{id}.html")
     suspend fun getMovieDetail(@Path("id") id: String): String
+
+    @GET("jpplay/{id}-{sid}-{nid}.html")
+    suspend fun getPlayUrl(
+        @Path("id") id: String,
+        @Path("sid") sid: String,
+        @Path("nid") nid: String
+    ): String
 } 

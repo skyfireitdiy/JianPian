@@ -86,4 +86,34 @@ object HtmlParser {
             episodes = episodes
         )
     }
+
+    fun parsePlayUrl(html: String): String {
+        val doc = Jsoup.parse(html)
+        // 查找包含播放配置的脚本
+        val script = doc.select("script").find { it.data().contains("player_aaaa") }
+        val scriptData = script?.data() ?: ""
+        
+        // 使用正则表达式提取 url
+        val urlPattern = "\"url\":\"(.*?)\"".toRegex()
+        val match = urlPattern.find(scriptData)
+        val url = match?.groupValues?.get(1)?.replace("\\/", "/") ?: ""
+        
+        Log.d("HtmlParser", "Parsed play url: $url")
+        return url
+    }
+
+    fun parseEpisodeIds(url: String): Triple<String, String, String> {
+        // 从 URL 格式 /jpplay/68532-1-1.html 解析出 id, sid, nid
+        val pattern = "/jpplay/(\\d+)-(\\d+)-(\\d+)\\.html".toRegex()
+        val match = pattern.find(url)
+        return if (match != null) {
+            Triple(
+                match.groupValues[1], // id
+                match.groupValues[2], // sid
+                match.groupValues[3]  // nid
+            )
+        } else {
+            Triple("", "", "")
+        }
+    }
 } 

@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.*
 import coil.compose.AsyncImage
 import com.example.jianpian.data.MovieDetail
+import com.example.jianpian.data.Episode
 import androidx.tv.foundation.lazy.list.TvLazyRow
 import androidx.tv.foundation.lazy.list.items
 
@@ -20,7 +21,7 @@ import androidx.tv.foundation.lazy.list.items
 @Composable
 fun DetailScreen(
     movieDetail: MovieDetail,
-    onPlayClick: (String) -> Unit,
+    onPlayClick: (Episode) -> Unit,
     onBackClick: () -> Unit
 ) {
     Column(
@@ -90,7 +91,7 @@ fun DetailScreen(
         ) {
             items(movieDetail.episodes) { episode ->
                 Button(
-                    onClick = { onPlayClick(episode.url) },
+                    onClick = { onPlayClick(episode) },
                     modifier = Modifier
                         .width(120.dp)
                         .height(48.dp)

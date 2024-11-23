@@ -25,6 +25,9 @@ class HomeViewModel : ViewModel() {
     private val _currentMovie = MutableStateFlow<MovieDetail?>(null)
     val currentMovie: StateFlow<MovieDetail?> = _currentMovie
     
+    private val _currentPlayUrl = MutableStateFlow<String>("")
+    val currentPlayUrl: StateFlow<String> = _currentPlayUrl
+    
     private val okHttpClient = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
@@ -72,6 +75,23 @@ class HomeViewModel : ViewModel() {
             } finally {
                 _isLoading.value = false
             }
+        }
+    }
+
+    suspend fun getPlayUrl(episodeUrl: String): String {
+        return try {
+            val (id, sid, nid) = HtmlParser.parseEpisodeIds(episodeUrl)
+            if (id.isNotEmpty() && sid.isNotEmpty() && nid.isNotEmpty()) {
+                val response = apiService.getPlayUrl(id, sid, nid)
+                val playUrl = HtmlParser.parsePlayUrl(response)
+                _currentPlayUrl.value = playUrl
+                playUrl
+            } else {
+                ""
+            }
+        } catch (e: Exception) {
+            Log.e("HomeViewModel", "Error getting play url", e)
+            ""
         }
     }
 } 

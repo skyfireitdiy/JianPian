@@ -27,6 +27,8 @@ import coil.compose.AsyncImage
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import android.util.Log
+import com.example.jianpian.data.Episode
+import com.example.jianpian.data.MovieDetail
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -38,82 +40,107 @@ fun HomeScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val currentMovie by viewModel.currentMovie.collectAsState()
     var showDetail by remember { mutableStateOf(false) }
+    var currentEpisode by remember { mutableStateOf<Episode?>(null) }
     
-    if (showDetail && currentMovie != null) {
-        DetailScreen(
-            movieDetail = currentMovie!!,
-            onPlayClick = { url ->
-                // TODO: 实现播放功能
-            },
-            onBackClick = {
-                showDetail = false
-            }
-        )
-    } else {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-        ) {
-            // Search bar
-            BasicTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.DarkGray.copy(alpha = 0.3f))
-                    .padding(16.dp)
-                    .focusable(),
-                decorationBox = { innerTextField ->
-                    Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.CenterStart
-                    ) {
-                        if (searchQuery.isEmpty()) {
-                            Text(
-                                text = "搜索电影...",
-                                color = Color.Gray
-                            )
-                        }
-                        innerTextField()
+    when {
+        currentEpisode != null && currentMovie != null -> {
+            VideoPlayerScreen(
+                movieDetail = currentMovie!!,
+                currentEpisode = currentEpisode!!,
+                onPreviousEpisode = {
+                    val index = currentMovie!!.episodes.indexOf(currentEpisode)
+                    if (index > 0) {
+                        currentEpisode = currentMovie!!.episodes[index - 1]
                     }
                 },
-                keyboardOptions = KeyboardOptions(
-                    imeAction = ImeAction.Search
-                ),
-                keyboardActions = KeyboardActions(
-                    onSearch = {
-                        viewModel.searchMovies(searchQuery)
+                onNextEpisode = {
+                    val index = currentMovie!!.episodes.indexOf(currentEpisode)
+                    if (index < currentMovie!!.episodes.size - 1) {
+                        currentEpisode = currentMovie!!.episodes[index + 1]
                     }
-                )
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            if (isLoading) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("加载中...")
+                },
+                onBackClick = {
+                    currentEpisode = null
                 }
-            } else {
-                // Movie grid
-                TvLazyVerticalGrid(
-                    columns = TvGridCells.Fixed(8),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(movies) { movie ->
-                        MovieCard(
-                            movie = movie,
-                            onClick = {
-                                viewModel.getMovieDetail(movie.id)
-                                showDetail = true
+            )
+        }
+        showDetail && currentMovie != null -> {
+            DetailScreen(
+                movieDetail = currentMovie!!,
+                onPlayClick = { episode ->
+                    currentEpisode = episode
+                },
+                onBackClick = {
+                    showDetail = false
+                }
+            )
+        }
+        else -> {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                // Search bar
+                BasicTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.DarkGray.copy(alpha = 0.3f))
+                        .padding(16.dp)
+                        .focusable(),
+                    decorationBox = { innerTextField ->
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            if (searchQuery.isEmpty()) {
+                                Text(
+                                    text = "搜索电影...",
+                                    color = Color.Gray
+                                )
                             }
-                        )
+                            innerTextField()
+                        }
+                    },
+                    keyboardOptions = KeyboardOptions(
+                        imeAction = ImeAction.Search
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onSearch = {
+                            viewModel.searchMovies(searchQuery)
+                        }
+                    )
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                if (isLoading) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("加载中...")
+                    }
+                } else {
+                    // Movie grid
+                    TvLazyVerticalGrid(
+                        columns = TvGridCells.Fixed(8),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(movies) { movie ->
+                            MovieCard(
+                                movie = movie,
+                                onClick = {
+                                    viewModel.getMovieDetail(movie.id)
+                                    showDetail = true
+                                }
+                            )
+                        }
                     }
                 }
             }
