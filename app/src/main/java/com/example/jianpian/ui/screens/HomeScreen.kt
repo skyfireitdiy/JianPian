@@ -30,6 +30,9 @@ import android.util.Log
 import com.example.jianpian.data.Episode
 import com.example.jianpian.data.MovieDetail
 import androidx.activity.compose.BackHandler
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.sp
+import com.example.jianpian.data.PlayHistory
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -37,8 +40,10 @@ fun HomeScreen(
     viewModel: HomeViewModel = viewModel(),
     onBackPressed: () -> Unit
 ) {
+    val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
     val movies by viewModel.movies.collectAsState()
+    val histories by viewModel.histories.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val currentMovie by viewModel.currentMovie.collectAsState()
     var showDetail by remember { mutableStateOf(false) }
@@ -54,6 +59,36 @@ fun HomeScreen(
             }
             else -> {
                 onBackPressed()
+            }
+        }
+    }
+    
+    LaunchedEffect(Unit) {
+        viewModel.loadPlayHistories(context)
+    }
+    
+    LaunchedEffect(currentEpisode) {
+        if (currentEpisode != null && currentMovie != null) {
+            viewModel.savePlayHistory(
+                context,
+                Movie(
+                    id = currentMovie!!.id,
+                    title = currentMovie!!.title,
+                    coverUrl = currentMovie!!.coverUrl,
+                    description = currentMovie!!.description
+                ),
+                currentEpisode!!.name,
+                currentEpisode!!.url
+            )
+        }
+    }
+    
+    LaunchedEffect(currentMovie) {
+        if (searchQuery.isEmpty() && currentMovie != null) {
+            histories.find { it.movie.id == currentMovie!!.id }?.let { history ->
+                currentMovie!!.episodes.find { it.url == history.episodeUrl }?.let { episode ->
+                    currentEpisode = episode
+                }
             }
         }
     }
@@ -140,22 +175,50 @@ fun HomeScreen(
                         Text("加载中...")
                     }
                 } else {
-                    // Movie grid
-                    TvLazyVerticalGrid(
-                        columns = TvGridCells.Fixed(8),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp),
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        items(movies) { movie ->
-                            MovieCard(
-                                movie = movie,
-                                onClick = {
-                                    viewModel.getMovieDetail(movie.id)
-                                    showDetail = true
-                                }
+                    if (searchQuery.isEmpty() && histories.isNotEmpty()) {
+                        Column {
+                            Text(
+                                text = "播放历史",
+                                fontSize = 20.sp,
+                                modifier = Modifier.padding(vertical = 8.dp)
                             )
+                            
+                            TvLazyVerticalGrid(
+                                columns = TvGridCells.Fixed(8),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp),
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                items(histories) { history ->
+                                    MovieCard(
+                                        movie = history.movie,
+                                        subtitle = history.episodeName,
+                                        onClick = {
+                                            viewModel.getMovieDetail(history.movie.id)
+                                            showDetail = true
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    } else if (searchQuery.isNotEmpty()) {
+                        TvLazyVerticalGrid(
+                            columns = TvGridCells.Fixed(8),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            items(movies) { movie ->
+                                MovieCard(
+                                    movie = movie,
+                                    onClick = {
+                                        viewModel.getMovieDetail(movie.id)
+                                        showDetail = true
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -168,6 +231,7 @@ fun HomeScreen(
 @Composable
 fun MovieCard(
     movie: Movie,
+    subtitle: String? = null,
     onClick: () -> Unit
 ) {
     var isImageLoading by remember { mutableStateOf(true) }
@@ -235,6 +299,21 @@ fun MovieCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+            
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.Black.copy(alpha = 0.7f))
+                        .padding(4.dp),
+                    textAlign = TextAlign.Center,
+                    color = Color.Gray,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 } 

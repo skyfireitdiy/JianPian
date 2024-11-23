@@ -1,12 +1,15 @@
 package com.example.jianpian.viewmodel
 
+import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.jianpian.data.Movie
 import com.example.jianpian.data.MovieDetail
+import com.example.jianpian.data.PlayHistory
 import com.example.jianpian.network.ApiService
 import com.example.jianpian.network.HtmlParser
+import com.example.jianpian.data.PlayHistoryManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -18,6 +21,9 @@ import java.util.concurrent.TimeUnit
 class HomeViewModel : ViewModel() {
     private val _movies = MutableStateFlow<List<Movie>>(emptyList())
     val movies: StateFlow<List<Movie>> = _movies
+    
+    private val _histories = MutableStateFlow<List<PlayHistory>>(emptyList())
+    val histories: StateFlow<List<PlayHistory>> = _histories
     
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
@@ -69,22 +75,36 @@ class HomeViewModel : ViewModel() {
     fun getMovieDetail(id: String) {
         viewModelScope.launch {
             try {
+                if (id.isEmpty()) {
+                    Log.e("HomeViewModel", "Cannot get movie detail: ID is empty")
+                    return@launch
+                }
+                
                 _isLoading.value = true
+                Log.d("HomeViewModel", "Getting movie detail for id: $id")
                 val response = apiService.getMovieDetail(id)
+                Log.d("HomeViewModel", "Got response: ${response.take(200)}...")
                 val movieDetail = HtmlParser.parseMovieDetail(response)
+                Log.d("HomeViewModel", "Parsed movie detail: $movieDetail")
                 _currentMovie.value = movieDetail
                 
                 // 预加载所有播放链接
                 val urls = mutableMapOf<String, String>()
                 movieDetail.episodes.forEach { episode ->
+                    Log.d("HomeViewModel", "Getting play url for episode: ${episode.name}, url: ${episode.url}")
                     val playUrl = getPlayUrl(episode.url)
                     if (playUrl.isNotEmpty()) {
+                        Log.d("HomeViewModel", "Got play url: $playUrl")
                         urls[episode.url] = playUrl
+                    } else {
+                        Log.e("HomeViewModel", "Failed to get play url for episode: ${episode.name}")
                     }
                 }
                 _playUrls.value = urls
             } catch (e: Exception) {
-                Log.e("HomeViewModel", "Error getting movie detail", e)
+                Log.e("HomeViewModel", "Error getting movie detail for id: $id", e)
+                e.printStackTrace()
+                Log.e("HomeViewModel", "Request URL: https://vodjp.com/jpvod/$id.html")
             } finally {
                 _isLoading.value = false
             }
@@ -93,18 +113,80 @@ class HomeViewModel : ViewModel() {
 
     suspend fun getPlayUrl(episodeUrl: String): String {
         return try {
+            Log.d("HomeViewModel", "Parsing episode ids from url: $episodeUrl")
             val (id, sid, nid) = HtmlParser.parseEpisodeIds(episodeUrl)
+            Log.d("HomeViewModel", "Parsed ids: id=$id, sid=$sid, nid=$nid")
+            
             if (id.isNotEmpty() && sid.isNotEmpty() && nid.isNotEmpty()) {
+                Log.d("HomeViewModel", "Getting play url for id=$id, sid=$sid, nid=$nid")
                 val response = apiService.getPlayUrl(id, sid, nid)
+                Log.d("HomeViewModel", "Got response: ${response.take(200)}...")
                 val playUrl = HtmlParser.parsePlayUrl(response)
+                Log.d("HomeViewModel", "Parsed play url: $playUrl")
                 _currentPlayUrl.value = playUrl
                 playUrl
             } else {
+                Log.e("HomeViewModel", "Failed to parse episode ids from url: $episodeUrl")
                 ""
             }
         } catch (e: Exception) {
-            Log.e("HomeViewModel", "Error getting play url", e)
+            Log.e("HomeViewModel", "Error getting play url for episode: $episodeUrl", e)
+            e.printStackTrace()
             ""
+        }
+    }
+
+    fun loadPlayHistories(context: Context) {
+        viewModelScope.launch {
+            Log.d("HomeViewModel", "Loading play histories")
+            val histories = PlayHistoryManager.getHistories(context)
+            Log.d("HomeViewModel", "Loaded ${histories.size} histories")
+            
+            // 过滤掉无效的历史记录
+            val validHistories = histories.filter { 
+                it.movie.id.isNotEmpty() && it.movie.title.isNotEmpty()  // 同时检查ID和标题
+            }
+            Log.d("HomeViewModel", "Valid histories: ${validHistories.size}")
+            
+            if (validHistories.size != histories.size) {
+                Log.d("HomeViewModel", "Filtered out ${histories.size - validHistories.size} invalid histories")
+            }
+            
+            validHistories.forEach { history ->
+                Log.d("HomeViewModel", "Valid history: movie=${history.movie.title}, id=${history.movie.id}, episode=${history.episodeName}")
+            }
+            
+            _histories.value = validHistories
+            Log.d("HomeViewModel", "Updated histories state")
+            
+            // 如果没有搜索结果，显示历史记录
+            if (_movies.value.isEmpty()) {
+                Log.d("HomeViewModel", "No search results, showing histories as movies")
+                _movies.value = validHistories.map { it.movie }
+            }
+        }
+    }
+
+    fun savePlayHistory(context: Context, movie: Movie, episodeName: String, episodeUrl: String) {
+        viewModelScope.launch {
+            if (movie.id.isNotEmpty() && movie.title.isNotEmpty()) {  // 添加标题检查
+                Log.d("HomeViewModel", "Saving play history for movie: id=${movie.id}, title=${movie.title}")
+                val history = PlayHistory(
+                    movie = Movie(
+                        id = movie.id,
+                        title = movie.title,  // 确保标题被保存
+                        coverUrl = movie.coverUrl,
+                        description = movie.description
+                    ),
+                    episodeName = episodeName,
+                    episodeUrl = episodeUrl
+                )
+                PlayHistoryManager.saveHistory(context, history)
+                Log.d("HomeViewModel", "Saved history, reloading histories")
+                loadPlayHistories(context)
+            } else {
+                Log.e("HomeViewModel", "Cannot save history: invalid movie data - id=${movie.id}, title=${movie.title}")
+            }
         }
     }
 } 

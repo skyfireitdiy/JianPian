@@ -1,5 +1,6 @@
 package com.example.jianpian.ui.screens
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
@@ -24,25 +25,27 @@ fun DetailScreen(
     onPlayClick: (Episode) -> Unit,
     onBackClick: () -> Unit
 ) {
+    Log.d("DetailScreen", "Displaying movie detail: ${movieDetail.title}")
+    Log.d("DetailScreen", "Movie info: id=${movieDetail.id}, " +
+        "director=${movieDetail.director}, " +
+        "actors=${movieDetail.actors}, " +
+        "genre=${movieDetail.genre}, " +
+        "area=${movieDetail.area}, " +
+        "year=${movieDetail.year}")
+    Log.d("DetailScreen", "Episodes: ${movieDetail.episodes.size}")
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
+            .background(Color.Black)
     ) {
-        // Back button
-        Button(
-            onClick = onBackClick,
-            modifier = Modifier.padding(bottom = 16.dp)
-        ) {
-            Text("返回")
-        }
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(300.dp)
         ) {
-            // Movie poster
+            // 电影海报
             AsyncImage(
                 model = movieDetail.coverUrl,
                 contentDescription = movieDetail.title,
@@ -52,36 +55,78 @@ fun DetailScreen(
                 contentScale = ContentScale.Crop
             )
 
-            // Movie info
+            // 电影信息
             Column(
                 modifier = Modifier
                     .padding(start = 16.dp)
                     .fillMaxHeight()
             ) {
+                // 电影标题
                 Text(
                     text = movieDetail.title,
-                    fontSize = 24.sp,
-                    color = Color.White
+                    fontSize = 28.sp,
+                    color = Color.White,
+                    modifier = Modifier.padding(bottom = 16.dp),
+                    style = androidx.compose.ui.text.TextStyle(
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
                 )
+
+                // 其他信息
+                if (movieDetail.director.isNotEmpty()) {
+                    Text(
+                        text = "导演：${movieDetail.director}",
+                        color = Color.LightGray,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                }
+                if (movieDetail.actors.isNotEmpty()) {
+                    Text(
+                        text = "主演：${movieDetail.actors}",
+                        color = Color.LightGray,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                }
+                if (movieDetail.genre.isNotEmpty()) {
+                    Text(
+                        text = "类型：${movieDetail.genre}",
+                        color = Color.LightGray,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                }
+                if (movieDetail.area.isNotEmpty()) {
+                    Text(
+                        text = "地区：${movieDetail.area}",
+                        color = Color.LightGray,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                }
+                if (movieDetail.year.isNotEmpty()) {
+                    Text(
+                        text = "年份：${movieDetail.year}",
+                        color = Color.LightGray,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                }
+                
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("导演：${movieDetail.director}")
-                Text("主演：${movieDetail.actors}")
-                Text("类型：${movieDetail.genre}")
-                Text("地区：${movieDetail.area}")
-                Text("年份：${movieDetail.year}")
-                Spacer(modifier = Modifier.height(8.dp))
+                
                 Text(
                     text = movieDetail.description,
+                    color = Color.Gray,
                     maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(vertical = 4.dp)
                 )
             }
         }
 
-        // Episodes
+        // 播放列表
         Text(
             text = "播放列表",
             fontSize = 20.sp,
+            color = Color.White,
             modifier = Modifier.padding(vertical = 16.dp)
         )
 
@@ -98,6 +143,7 @@ fun DetailScreen(
                 ) {
                     Text(
                         text = episode.name,
+                        color = Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
