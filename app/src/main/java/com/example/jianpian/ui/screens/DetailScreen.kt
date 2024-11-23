@@ -15,8 +15,9 @@ import androidx.tv.material3.*
 import coil.compose.AsyncImage
 import com.example.jianpian.data.MovieDetail
 import com.example.jianpian.data.Episode
-import androidx.tv.foundation.lazy.list.TvLazyRow
-import androidx.tv.foundation.lazy.list.items
+import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
+import androidx.tv.foundation.lazy.grid.TvGridCells
+import androidx.tv.foundation.lazy.grid.items
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.platform.LocalContext
 import com.example.jianpian.data.Movie
@@ -159,7 +160,7 @@ fun DetailScreen(
                 }
             }
 
-            // 播放列表
+            // 播放列表标题
             Text(
                 text = "播放列表",
                 fontSize = 20.sp,
@@ -167,15 +168,21 @@ fun DetailScreen(
                 modifier = Modifier.padding(vertical = 16.dp)
             )
 
-            TvLazyRow(
+            // 使用 TvLazyVerticalGrid 替换 TvLazyRow
+            TvLazyVerticalGrid(
+                columns = TvGridCells.Fixed(6),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(horizontal = 8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(bottom = 16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(240.dp)  // 固定高度，可以根据需要调整
             ) {
                 items(movieDetail.episodes) { episode ->
                     Button(
                         onClick = { onPlayClick(episode) },
                         modifier = Modifier
-                            .width(120.dp)
+                            .fillMaxWidth()
                             .height(48.dp)
                     ) {
                         Text(
