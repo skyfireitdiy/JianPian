@@ -310,6 +310,25 @@ fun HomeScreen(
                                         }
                                     )
                                 }
+                                
+                                // 添加一个监听器项
+                                item(span = { androidx.tv.foundation.lazy.grid.TvGridItemSpan(6) }) {
+                                    if (!isLoading) {
+                                        LaunchedEffect(Unit) {
+                                            viewModel.loadNextPage()
+                                        }
+                                    }
+                                    if (isLoading) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(50.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text("加载中...", color = Color.White)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

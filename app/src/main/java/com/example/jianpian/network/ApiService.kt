@@ -11,6 +11,12 @@ interface ApiService {
     @POST("jpsearch/-------------.html")
     suspend fun searchMovies(@Field("wd") keyword: String): String
     
+    @GET("jpsearch/{keyword}----------{page}---.html")
+    suspend fun searchMoviesNextPage(
+        @Path("keyword") keyword: String,
+        @Path("page") page: Int
+    ): String
+    
     @GET("jpvod/{id}.html")
     suspend fun getMovieDetail(@Path("id") id: String): String
 

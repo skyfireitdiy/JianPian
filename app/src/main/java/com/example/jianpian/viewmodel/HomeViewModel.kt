@@ -56,23 +56,65 @@ class HomeViewModel : ViewModel() {
         .build()
         .create(ApiService::class.java)
     
+    private var currentPage = 1
+    private var currentKeyword = ""
+    private var isLastPage = false
+    private var isLoadingNextPage = false
+
     fun searchMovies(keyword: String) {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
+                currentKeyword = keyword
+                currentPage = 1
+                isLastPage = false
+                
                 Log.d("HomeViewModel", "Searching for: $keyword")
                 val response = apiService.searchMovies(keyword)
                 Log.d("HomeViewModel", "Response: $response")
                 val movies = HtmlParser.parseMovieList(response)
                 Log.d("HomeViewModel", "Parsed movies: ${movies.size}")
-                movies.forEach { movie ->
-                    Log.d("HomeViewModel", "Movie: ${movie.title}, Cover: ${movie.coverUrl}")
+                
+                if (movies.isEmpty()) {
+                    isLastPage = true
                 }
+                
                 _movies.value = movies
             } catch (e: Exception) {
                 Log.e("HomeViewModel", "Error searching movies", e)
             } finally {
                 _isLoading.value = false
+            }
+        }
+    }
+
+    fun loadNextPage() {
+        if (isLastPage || isLoadingNextPage || currentKeyword.isEmpty()) {
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                isLoadingNextPage = true
+                currentPage++
+                
+                Log.d("HomeViewModel", "Loading page $currentPage for keyword: $currentKeyword")
+                val response = apiService.searchMoviesNextPage(currentKeyword, currentPage)
+                val newMovies = HtmlParser.parseMovieList(response)
+                Log.d("HomeViewModel", "Loaded ${newMovies.size} new movies")
+                
+                if (newMovies.isEmpty()) {
+                    isLastPage = true
+                    Log.d("HomeViewModel", "Reached last page")
+                    return@launch
+                }
+                
+                _movies.value = _movies.value + newMovies
+            } catch (e: Exception) {
+                Log.e("HomeViewModel", "Error loading next page", e)
+                currentPage--  // 恢复页码，以便重试
+            } finally {
+                isLoadingNextPage = false
             }
         }
     }
