@@ -29,11 +29,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import android.util.Log
 import com.example.jianpian.data.Episode
 import com.example.jianpian.data.MovieDetail
+import androidx.activity.compose.BackHandler
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    viewModel: HomeViewModel = viewModel()
+    viewModel: HomeViewModel = viewModel(),
+    onBackPressed: () -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val movies by viewModel.movies.collectAsState()
@@ -41,6 +43,20 @@ fun HomeScreen(
     val currentMovie by viewModel.currentMovie.collectAsState()
     var showDetail by remember { mutableStateOf(false) }
     var currentEpisode by remember { mutableStateOf<Episode?>(null) }
+    
+    BackHandler {
+        when {
+            currentEpisode != null -> {
+                currentEpisode = null
+            }
+            showDetail -> {
+                showDetail = false
+            }
+            else -> {
+                onBackPressed()
+            }
+        }
+    }
     
     when {
         currentEpisode != null && currentMovie != null -> {
