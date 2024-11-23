@@ -177,11 +177,42 @@ fun HomeScreen(
                 } else {
                     if (searchQuery.isEmpty() && histories.isNotEmpty()) {
                         Column {
-                            Text(
-                                text = "播放历史",
-                                fontSize = 20.sp,
-                                modifier = Modifier.padding(vertical = 8.dp)
-                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "播放历史",
+                                    fontSize = 20.sp
+                                )
+                                
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Button(
+                                        onClick = {
+                                            // 如果有历史记录，直接继续播放最近的一个
+                                            histories.firstOrNull()?.let { history ->
+                                                viewModel.getMovieDetail(history.movie.id)
+                                                showDetail = true
+                                            }
+                                        }
+                                    ) {
+                                        Text("继续观看")
+                                    }
+                                    
+                                    Button(
+                                        onClick = {
+                                            viewModel.clearPlayHistories(context)
+                                        }
+                                    ) {
+                                        Text("清除历史")
+                                    }
+                                }
+                            }
                             
                             TvLazyVerticalGrid(
                                 columns = TvGridCells.Fixed(8),

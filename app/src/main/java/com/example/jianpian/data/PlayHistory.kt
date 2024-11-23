@@ -63,4 +63,12 @@ object PlayHistoryManager {
             emptyList()
         }
     }
+
+    fun clearHistories(context: Context) {
+        Log.d("PlayHistoryManager", "Clearing all histories")
+        context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_HISTORY, "[]")
+            .apply()
+    }
 } 

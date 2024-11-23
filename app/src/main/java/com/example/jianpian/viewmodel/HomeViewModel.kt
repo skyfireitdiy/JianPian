@@ -189,4 +189,12 @@ class HomeViewModel : ViewModel() {
             }
         }
     }
+
+    fun clearPlayHistories(context: Context) {
+        viewModelScope.launch {
+            Log.d("HomeViewModel", "Clearing play histories")
+            PlayHistoryManager.clearHistories(context)
+            loadPlayHistories(context)  // 重新加载以更新UI
+        }
+    }
 } 
