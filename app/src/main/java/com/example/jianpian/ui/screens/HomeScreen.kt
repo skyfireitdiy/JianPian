@@ -44,6 +44,7 @@ fun HomeScreen(
     var searchQuery by remember { mutableStateOf("") }
     val movies by viewModel.movies.collectAsState()
     val histories by viewModel.histories.collectAsState()
+    val favorites by viewModel.favorites.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val currentMovie by viewModel.currentMovie.collectAsState()
     var showDetail by remember { mutableStateOf(false) }
@@ -185,11 +186,20 @@ fun HomeScreen(
                         }
                     } else {
                         if (searchQuery.isEmpty()) {
-                            Column {
-                                // 收藏列表
-                                val favorites by viewModel.favorites.collectAsState()
+                            TvLazyVerticalGrid(
+                                columns = TvGridCells.Fixed(8),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                                contentPadding = PaddingValues(
+                                    start = 8.dp,
+                                    end = 8.dp,
+                                    bottom = 16.dp
+                                ),
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                // 收藏列表标题
                                 if (favorites.isNotEmpty()) {
-                                    Column {
+                                    item(span = { androidx.tv.foundation.lazy.grid.TvGridItemSpan(8) }) {
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -199,7 +209,8 @@ fun HomeScreen(
                                         ) {
                                             Text(
                                                 text = "我的收藏",
-                                                fontSize = 20.sp
+                                                fontSize = 20.sp,
+                                                color = Color.White
                                             )
                                             
                                             Button(
@@ -210,30 +221,23 @@ fun HomeScreen(
                                                 Text("清除收藏")
                                             }
                                         }
-                                        
-                                        TvLazyVerticalGrid(
-                                            columns = TvGridCells.Fixed(8),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                                            contentPadding = PaddingValues(horizontal = 8.dp),
-                                            modifier = Modifier.height(280.dp)
-                                        ) {
-                                            items(favorites) { favorite ->
-                                                MovieCard(
-                                                    movie = favorite.movie,
-                                                    onClick = {
-                                                        viewModel.getMovieDetail(favorite.movie.id)
-                                                        showDetail = true
-                                                    }
-                                                )
+                                    }
+
+                                    // 收藏列表内容
+                                    items(favorites) { favorite ->
+                                        MovieCard(
+                                            movie = favorite.movie,
+                                            onClick = {
+                                                viewModel.getMovieDetail(favorite.movie.id)
+                                                showDetail = true
                                             }
-                                        }
+                                        )
                                     }
                                 }
 
-                                // 播放历史
+                                // 播放历史标题
                                 if (histories.isNotEmpty()) {
-                                    Column {
+                                    item(span = { androidx.tv.foundation.lazy.grid.TvGridItemSpan(8) }) {
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -243,7 +247,8 @@ fun HomeScreen(
                                         ) {
                                             Text(
                                                 text = "播放历史",
-                                                fontSize = 20.sp
+                                                fontSize = 20.sp,
+                                                color = Color.White
                                             )
                                             
                                             Row(
@@ -251,7 +256,6 @@ fun HomeScreen(
                                             ) {
                                                 Button(
                                                     onClick = {
-                                                        // 如果有历史记录，直接继续播放最近的一个
                                                         histories.firstOrNull()?.let { history ->
                                                             viewModel.getMovieDetail(history.movie.id)
                                                             showDetail = true
@@ -270,25 +274,18 @@ fun HomeScreen(
                                                 }
                                             }
                                         }
-                                        
-                                        TvLazyVerticalGrid(
-                                            columns = TvGridCells.Fixed(8),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                                            contentPadding = PaddingValues(horizontal = 8.dp),
-                                            modifier = Modifier.fillMaxSize()
-                                        ) {
-                                            items(histories) { history ->
-                                                MovieCard(
-                                                    movie = history.movie,
-                                                    subtitle = history.episodeName,
-                                                    onClick = {
-                                                        viewModel.getMovieDetail(history.movie.id)
-                                                        showDetail = true
-                                                    }
-                                                )
+                                    }
+
+                                    // 播放历史内容
+                                    items(histories) { history ->
+                                        MovieCard(
+                                            movie = history.movie,
+                                            subtitle = history.episodeName,
+                                            onClick = {
+                                                viewModel.getMovieDetail(history.movie.id)
+                                                showDetail = true
                                             }
-                                        }
+                                        )
                                     }
                                 }
                             }
