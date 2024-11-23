@@ -187,19 +187,19 @@ fun HomeScreen(
                     } else {
                         if (searchQuery.isEmpty()) {
                             TvLazyVerticalGrid(
-                                columns = TvGridCells.Fixed(8),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                columns = TvGridCells.Fixed(6),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(16.dp),
                                 contentPadding = PaddingValues(
-                                    start = 8.dp,
-                                    end = 8.dp,
+                                    start = 16.dp,
+                                    end = 16.dp,
                                     bottom = 16.dp
                                 ),
                                 modifier = Modifier.fillMaxSize()
                             ) {
                                 // 收藏列表标题
                                 if (favorites.isNotEmpty()) {
-                                    item(span = { androidx.tv.foundation.lazy.grid.TvGridItemSpan(8) }) {
+                                    item(span = { androidx.tv.foundation.lazy.grid.TvGridItemSpan(6) }) {
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -237,7 +237,7 @@ fun HomeScreen(
 
                                 // 播放历史标题
                                 if (histories.isNotEmpty()) {
-                                    item(span = { androidx.tv.foundation.lazy.grid.TvGridItemSpan(8) }) {
+                                    item(span = { androidx.tv.foundation.lazy.grid.TvGridItemSpan(6) }) {
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -291,10 +291,14 @@ fun HomeScreen(
                             }
                         } else {
                             TvLazyVerticalGrid(
-                                columns = TvGridCells.Fixed(8),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                                contentPadding = PaddingValues(horizontal = 8.dp),
+                                columns = TvGridCells.Fixed(6),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                                contentPadding = PaddingValues(
+                                    start = 16.dp,
+                                    end = 16.dp,
+                                    bottom = 16.dp
+                                ),
                                 modifier = Modifier.fillMaxSize()
                             ) {
                                 items(movies) { movie ->
