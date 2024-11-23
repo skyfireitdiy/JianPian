@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.jianpian.data.Movie
+import com.example.jianpian.data.MovieDetail
 import com.example.jianpian.network.ApiService
 import com.example.jianpian.network.HtmlParser
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +21,9 @@ class HomeViewModel : ViewModel() {
     
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
+    
+    private val _currentMovie = MutableStateFlow<MovieDetail?>(null)
+    val currentMovie: StateFlow<MovieDetail?> = _currentMovie
     
     private val okHttpClient = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -50,6 +54,21 @@ class HomeViewModel : ViewModel() {
                 _movies.value = movies
             } catch (e: Exception) {
                 Log.e("HomeViewModel", "Error searching movies", e)
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun getMovieDetail(id: String) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val response = apiService.getMovieDetail(id)
+                val movieDetail = HtmlParser.parseMovieDetail(response)
+                _currentMovie.value = movieDetail
+            } catch (e: Exception) {
+                Log.e("HomeViewModel", "Error getting movie detail", e)
             } finally {
                 _isLoading.value = false
             }

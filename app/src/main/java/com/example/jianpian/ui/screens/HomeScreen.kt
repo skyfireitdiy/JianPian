@@ -36,65 +36,85 @@ fun HomeScreen(
     var searchQuery by remember { mutableStateOf("") }
     val movies by viewModel.movies.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val currentMovie by viewModel.currentMovie.collectAsState()
+    var showDetail by remember { mutableStateOf(false) }
     
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        // Search bar
-        BasicTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
+    if (showDetail && currentMovie != null) {
+        DetailScreen(
+            movieDetail = currentMovie!!,
+            onPlayClick = { url ->
+                // TODO: 实现播放功能
+            },
+            onBackClick = {
+                showDetail = false
+            }
+        )
+    } else {
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(Color.DarkGray.copy(alpha = 0.3f))
+                .fillMaxSize()
                 .padding(16.dp)
-                .focusable(),
-            decorationBox = { innerTextField ->
+        ) {
+            // Search bar
+            BasicTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.DarkGray.copy(alpha = 0.3f))
+                    .padding(16.dp)
+                    .focusable(),
+                decorationBox = { innerTextField ->
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        if (searchQuery.isEmpty()) {
+                            Text(
+                                text = "搜索电影...",
+                                color = Color.Gray
+                            )
+                        }
+                        innerTextField()
+                    }
+                },
+                keyboardOptions = KeyboardOptions(
+                    imeAction = ImeAction.Search
+                ),
+                keyboardActions = KeyboardActions(
+                    onSearch = {
+                        viewModel.searchMovies(searchQuery)
+                    }
+                )
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            if (isLoading) {
                 Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.CenterStart
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
                 ) {
-                    if (searchQuery.isEmpty()) {
-                        Text(
-                            text = "搜索电影...",
-                            color = Color.Gray
+                    Text("加载中...")
+                }
+            } else {
+                // Movie grid
+                TvLazyVerticalGrid(
+                    columns = TvGridCells.Fixed(8),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    items(movies) { movie ->
+                        MovieCard(
+                            movie = movie,
+                            onClick = {
+                                viewModel.getMovieDetail(movie.id)
+                                showDetail = true
+                            }
                         )
                     }
-                    innerTextField()
-                }
-            },
-            keyboardOptions = KeyboardOptions(
-                imeAction = ImeAction.Search
-            ),
-            keyboardActions = KeyboardActions(
-                onSearch = {
-                    viewModel.searchMovies(searchQuery)
-                }
-            )
-        )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        if (isLoading) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("加载中...")
-            }
-        } else {
-            // Movie grid
-            TvLazyVerticalGrid(
-                columns = TvGridCells.Fixed(8),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(horizontal = 8.dp),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                items(movies) { movie ->
-                    MovieCard(movie)
                 }
             }
         }
@@ -103,7 +123,10 @@ fun HomeScreen(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-fun MovieCard(movie: Movie) {
+fun MovieCard(
+    movie: Movie,
+    onClick: () -> Unit
+) {
     var isImageLoading by remember { mutableStateOf(true) }
     var isImageError by remember { mutableStateOf(false) }
 
@@ -111,7 +134,7 @@ fun MovieCard(movie: Movie) {
         modifier = Modifier
             .width(160.dp)
             .height(240.dp),
-        onClick = { /* TODO: Navigate to movie detail */ }
+        onClick = onClick
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
