@@ -38,6 +38,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.toArgb
 import android.graphics.Color as AndroidColor
 import kotlinx.coroutines.delay
+import android.view.WindowManager
+import androidx.compose.ui.platform.LocalView
+import android.content.Context
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -50,6 +53,8 @@ fun VideoPlayerScreen(
     viewModel: HomeViewModel = viewModel()
 ) {
     val context = LocalContext.current
+    val view = LocalView.current
+    val window = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     val playUrls by viewModel.playUrls.collectAsState()
     
     var playerView by remember { mutableStateOf<PlayerView?>(null) }
@@ -128,8 +133,11 @@ fun VideoPlayerScreen(
     }
 
     DisposableEffect(Unit) {
+        val originalFlags = view.keepScreenOn
+        view.keepScreenOn = true
+        
         onDispose {
-            exoPlayer.release()
+            view.keepScreenOn = originalFlags
         }
     }
 
