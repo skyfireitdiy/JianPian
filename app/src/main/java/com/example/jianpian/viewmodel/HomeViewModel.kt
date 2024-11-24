@@ -12,6 +12,8 @@ import com.example.jianpian.network.HtmlParser
 import com.example.jianpian.data.PlayHistoryManager
 import com.example.jianpian.data.Favorite
 import com.example.jianpian.data.FavoriteManager
+import com.example.jianpian.data.PlayUrlCache
+import com.example.jianpian.JianPianApp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -130,12 +132,20 @@ class HomeViewModel : ViewModel() {
                 _isLoading.value = true
                 Log.d("HomeViewModel", "Getting movie detail for id: $id")
                 val response = apiService.getMovieDetail(id)
-                Log.d("HomeViewModel", "Got response: ${response.take(200)}...")
                 val movieDetail = HtmlParser.parseMovieDetail(response)
-                Log.d("HomeViewModel", "Parsed movie detail: $movieDetail")
                 _currentMovie.value = movieDetail
                 
-                // 预加载所有播放链接
+                // 先尝试从缓存获取播放链接
+                val context = JianPianApp.instance.applicationContext
+                val cachedUrls = PlayUrlCache.getUrls(context, id)
+                if (cachedUrls != null) {
+                    Log.d("HomeViewModel", "Using cached play urls")
+                    _playUrls.value = cachedUrls
+                    return@launch
+                }
+                
+                // 如果缓存中没有，则获取新的播放链接
+                Log.d("HomeViewModel", "Getting new play urls")
                 val urls = mutableMapOf<String, String>()
                 movieDetail.episodes.forEach { episode ->
                     Log.d("HomeViewModel", "Getting play url for episode: ${episode.name}, url: ${episode.url}")
@@ -147,11 +157,14 @@ class HomeViewModel : ViewModel() {
                         Log.e("HomeViewModel", "Failed to get play url for episode: ${episode.name}")
                     }
                 }
+                
+                // 保存到缓存
+                PlayUrlCache.saveUrls(context, id, urls)
                 _playUrls.value = urls
+                
             } catch (e: Exception) {
                 Log.e("HomeViewModel", "Error getting movie detail for id: $id", e)
                 e.printStackTrace()
-                Log.e("HomeViewModel", "Request URL: https://vodjp.com/jpvod/$id.html")
             } finally {
                 _isLoading.value = false
             }

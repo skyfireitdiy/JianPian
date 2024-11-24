@@ -10,6 +10,16 @@ import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
 class JianPianApp : Application(), ImageLoaderFactory {
+    companion object {
+        lateinit var instance: JianPianApp
+            private set
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        instance = this
+    }
+
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
             .crossfade(true)
