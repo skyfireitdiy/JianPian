@@ -40,6 +40,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -157,20 +162,29 @@ fun HomeScreen(
     // 修改菜单状态管理
     val showMenu = remember { mutableStateOf(false) }
     val selectedHistoryId = remember { mutableStateOf("") }
-    val menuOffset = remember { mutableStateOf(Offset.Zero) }
     
     BackHandler {
         when {
+            showMenu.value -> {
+                // 如果菜单打开，先关闭菜单
+                showMenu.value = false
+            }
             currentEpisode != null -> {
+                // 如果在播放器中，返回到详情页
                 currentEpisode = null
+                showDetail = true
             }
             showDetail -> {
+                // 如果在详情页，返回到列表页
                 showDetail = false
             }
             searchQuery.isNotEmpty() -> {
+                // 如果有搜索内容，清空搜索
                 searchQuery = ""
+                viewModel.clearSearchResults()
             }
             else -> {
+                // 如果在首页，退出应用
                 onBackPressed()
             }
         }
@@ -227,7 +241,9 @@ fun HomeScreen(
                         }
                     },
                     onBackClick = {
+                        // 返回到详情页而不是直接退出
                         currentEpisode = null
+                        showDetail = true
                     }
                 )
             }
@@ -238,6 +254,7 @@ fun HomeScreen(
                         currentEpisode = episode
                     },
                     onBackClick = {
+                        // 返回到列表页
                         showDetail = false
                     }
                 )
@@ -326,7 +343,7 @@ fun HomeScreen(
                             ),
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            // 根据 searchQuery 显示不同的内容
+                            // 根 searchQuery 显示不的内容
                             if (searchQuery.isEmpty()) {
                                 // 收藏列表标题
                                 if (favorites.isNotEmpty()) {
@@ -364,7 +381,6 @@ fun HomeScreen(
                                             },
                                             onLongClick = {
                                                 selectedHistoryId.value = favorite.movie.id
-                                                menuOffset.value = Offset.Zero
                                                 showMenu.value = true
                                             }
                                         )
@@ -425,26 +441,63 @@ fun HomeScreen(
                                                 ),
                                                 subtitle = history.episodeName,
                                                 onClick = {
-                                                    viewModel.getMovieDetail(history.movieDetailId)
-                                                    showDetail = true
+                                                    Log.d("HomeScreen", "MovieCard onClick - ${history.movieTitle}")
+                                                    if (showMenu.value) {
+                                                        Log.d("HomeScreen", "Closing menu - ${history.movieTitle}")
+                                                        showMenu.value = false
+                                                    } else {
+                                                        Log.d("HomeScreen", "Opening detail - ${history.movieTitle}")
+                                                        viewModel.getMovieDetail(history.movieDetailId)
+                                                        showDetail = true
+                                                    }
                                                 },
                                                 onLongClick = {
+                                                    Log.d("HomeScreen", "MovieCard onLongClick - ${history.movieTitle}")
                                                     selectedHistoryId.value = history.movieDetailId
                                                     showMenu.value = true
                                                 }
                                             )
 
                                             if (showMenu.value && selectedHistoryId.value == history.movieDetailId) {
+                                                var menuFocused by remember { mutableStateOf(false) }
+                                                var isFirstClick by remember { mutableStateOf(true) }
+                                                
                                                 DropdownMenu(
                                                     expanded = true,
-                                                    onDismissRequest = { showMenu.value = false }
+                                                    onDismissRequest = { showMenu.value = false },
+                                                    properties = PopupProperties(
+                                                        focusable = true,
+                                                        dismissOnBackPress = true,
+                                                        dismissOnClickOutside = true
+                                                    )
                                                 ) {
                                                     DropdownMenuItem(
-                                                        onClick = {
-                                                            viewModel.deletePlayHistory(context, history.movieDetailId)
-                                                            showMenu.value = false
+                                                        modifier = Modifier
+                                                            .background(
+                                                                color = if (menuFocused) Color.Red.copy(alpha = 0.2f) else Color.Transparent,
+                                                                shape = RoundedCornerShape(4.dp)
+                                                            )
+                                                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                                                            .onFocusChanged { 
+                                                                menuFocused = it.isFocused
+                                                                Log.d("HomeScreen", "Menu focus changed: ${it.isFocused}")
+                                                            },
+                                                        text = { 
+                                                            Text(
+                                                                "删除",
+                                                                color = if (menuFocused) Color.White else Color.Gray
+                                                            ) 
                                                         },
-                                                        text = { Text("删除") }
+                                                        onClick = {
+                                                            Log.d("HomeScreen", "Menu item clicked - Delete ${history.movieTitle}, isFirstClick: $isFirstClick")
+                                                            if (isFirstClick) {
+                                                                isFirstClick = false
+                                                                Log.d("HomeScreen", "Skipping first click")
+                                                            } else if (menuFocused) {
+                                                                viewModel.deletePlayHistory(context, history.movieDetailId)
+                                                                showMenu.value = false
+                                                            }
+                                                        }
                                                     )
                                                 }
                                             }
@@ -472,7 +525,6 @@ fun HomeScreen(
                                             },
                                             onLongClick = {
                                                 selectedHistoryId.value = movie.id
-                                                menuOffset.value = Offset.Zero
                                                 showMenu.value = true
                                             }
                                         )
@@ -499,7 +551,6 @@ fun HomeScreen(
                                         },
                                         onLongClick = {
                                             selectedHistoryId.value = movie.id
-                                            menuOffset.value = Offset.Zero
                                             showMenu.value = true
                                         }
                                     )

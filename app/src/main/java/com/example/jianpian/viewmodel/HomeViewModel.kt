@@ -357,4 +357,8 @@ class HomeViewModel : ViewModel() {
             loadPlayHistories(context)
         }
     }
+
+    fun clearSearchResults() {
+        _movies.value = emptyList()
+    }
 } 
