@@ -156,6 +156,9 @@ fun HomeScreen(
             showDetail -> {
                 showDetail = false
             }
+            searchQuery.isNotEmpty() -> {
+                searchQuery = ""
+            }
             else -> {
                 onBackPressed()
             }
