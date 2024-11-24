@@ -22,6 +22,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.platform.LocalContext
 import com.example.jianpian.data.Movie
 import com.example.jianpian.viewmodel.HomeViewModel
+import com.example.jianpian.data.PlayUrlCache
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -33,9 +34,33 @@ fun DetailScreen(
 ) {
     val context = LocalContext.current
     var isFavorite by remember { mutableStateOf(false) }
+    var isCaching by remember { mutableStateOf(false) }
+    var cacheProgress by remember { mutableStateOf(0f) }
+    var isCached by remember { mutableStateOf(false) }
 
     LaunchedEffect(movieDetail.id) {
         isFavorite = viewModel.isFavorite(context, movieDetail.id)
+        val cachedUrls = PlayUrlCache.getUrls(context, movieDetail.id)
+        if (cachedUrls == null) {
+            isCaching = true
+            cacheProgress = 0f
+            viewModel.refreshPlayUrls(context, movieDetail)
+        } else {
+            isCached = true
+        }
+    }
+
+    LaunchedEffect(isCaching) {
+        if (isCaching) {
+            val totalEpisodes = movieDetail.episodes.size
+            viewModel.cacheProgressFlow.collect { progress ->
+                cacheProgress = progress.toFloat() / totalEpisodes
+                if (progress == totalEpisodes) {
+                    isCaching = false
+                    isCached = true
+                }
+            }
+        }
     }
 
     Log.d("DetailScreen", "Displaying movie detail: ${movieDetail.title}")
@@ -160,13 +185,77 @@ fun DetailScreen(
                 }
             }
 
-            // 播放列表标题
-            Text(
-                text = "播放列表",
-                fontSize = 20.sp,
-                color = Color.White,
-                modifier = Modifier.padding(vertical = 16.dp)
-            )
+            // 在播放列表标题旁添加缓存状���和操作
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "播放列表",
+                    fontSize = 20.sp,
+                    color = Color.White
+                )
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isCaching) {
+                        // 显示缓存进度
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "首次播放，缓存播放链接...",
+                                color = Color.Gray,
+                                fontSize = 14.sp
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .width(200.dp)
+                                    .height(4.dp)
+                                    .background(Color.DarkGray)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .width(200.dp * cacheProgress)
+                                        .background(Color.Green)
+                                )
+                            }
+                            Text(
+                                text = "${(cacheProgress * 100).toInt()}%",
+                                color = Color.Gray,
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+                    } else if (isCached) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "播放链接已缓存",
+                                color = Color.Green,
+                                fontSize = 14.sp
+                            )
+                            Button(
+                                onClick = {
+                                    isCaching = true
+                                    cacheProgress = 0f
+                                    viewModel.refreshPlayUrls(context, movieDetail)
+                                }
+                            ) {
+                                Text("重新缓存")
+                            }
+                        }
+                    }
+                }
+            }
 
             // 使用 TvLazyVerticalGrid 替换 TvLazyRow
             TvLazyVerticalGrid(

@@ -44,6 +44,9 @@ class HomeViewModel : ViewModel() {
     private val _favorites = MutableStateFlow<List<Favorite>>(emptyList())
     val favorites: StateFlow<List<Favorite>> = _favorites
     
+    private val _cacheProgress = MutableStateFlow(0)
+    val cacheProgressFlow: StateFlow<Int> = _cacheProgress
+    
     private val okHttpClient = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
@@ -144,21 +147,17 @@ class HomeViewModel : ViewModel() {
                     return@launch
                 }
                 
-                // 如果缓存中没有，则获取新的播放链接
-                Log.d("HomeViewModel", "Getting new play urls")
+                // 如果缓存中没有，则开始缓存
+                _cacheProgress.value = 0
                 val urls = mutableMapOf<String, String>()
-                movieDetail.episodes.forEach { episode ->
-                    Log.d("HomeViewModel", "Getting play url for episode: ${episode.name}, url: ${episode.url}")
+                movieDetail.episodes.forEachIndexed { index, episode ->
                     val playUrl = getPlayUrl(episode.url)
                     if (playUrl.isNotEmpty()) {
-                        Log.d("HomeViewModel", "Got play url: $playUrl")
                         urls[episode.url] = playUrl
-                    } else {
-                        Log.e("HomeViewModel", "Failed to get play url for episode: ${episode.name}")
                     }
+                    _cacheProgress.value = index + 1
                 }
                 
-                // 保存到缓存
                 PlayUrlCache.saveUrls(context, id, urls)
                 _playUrls.value = urls
                 
@@ -283,6 +282,24 @@ class HomeViewModel : ViewModel() {
         viewModelScope.launch {
             FavoriteManager.clearFavorites(context)
             loadFavorites(context)
+        }
+    }
+
+    fun refreshPlayUrls(context: Context, movieDetail: MovieDetail) {
+        viewModelScope.launch {
+            _cacheProgress.value = 0
+            val urls = mutableMapOf<String, String>()
+            
+            movieDetail.episodes.forEachIndexed { index, episode ->
+                val playUrl = getPlayUrl(episode.url)
+                if (playUrl.isNotEmpty()) {
+                    urls[episode.url] = playUrl
+                }
+                _cacheProgress.value = index + 1
+            }
+            
+            PlayUrlCache.saveUrls(context, movieDetail.id, urls)
+            _playUrls.value = urls
         }
     }
 } 
