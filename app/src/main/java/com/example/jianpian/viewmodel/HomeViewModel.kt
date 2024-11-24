@@ -349,4 +349,12 @@ class HomeViewModel : ViewModel() {
             }
         }
     }
+
+    fun deletePlayHistory(context: Context, movieDetailId: String) {
+        viewModelScope.launch {
+            PlayHistoryManager.deleteHistory(context, movieDetailId)
+            // 重新加载历史记录以更新UI
+            loadPlayHistories(context)
+        }
+    }
 } 

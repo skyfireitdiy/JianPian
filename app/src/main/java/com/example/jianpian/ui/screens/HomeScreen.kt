@@ -36,13 +36,18 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.activity.compose.BackHandler
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun MovieCard(
     movie: Movie,
     subtitle: String? = null,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
 ) {
     var isImageLoading by remember { mutableStateOf(true) }
     var isImageError by remember { mutableStateOf(false) }
@@ -51,7 +56,8 @@ private fun MovieCard(
         modifier = Modifier
             .width(160.dp)
             .height(240.dp),
-        onClick = onClick
+        onClick = onClick,
+        onLongClick = onLongClick
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
@@ -147,6 +153,11 @@ fun HomeScreen(
     
     // 添加 FocusRequester
     val searchFocusRequester = remember { FocusRequester() }
+    
+    // 修改菜单状态管理
+    val showMenu = remember { mutableStateOf(false) }
+    val selectedHistoryId = remember { mutableStateOf("") }
+    val menuOffset = remember { mutableStateOf(Offset.Zero) }
     
     BackHandler {
         when {
@@ -350,6 +361,11 @@ fun HomeScreen(
                                             onClick = {
                                                 viewModel.getMovieDetail(favorite.movie.id)
                                                 showDetail = true
+                                            },
+                                            onLongClick = {
+                                                selectedHistoryId.value = favorite.movie.id
+                                                menuOffset.value = Offset.Zero
+                                                showMenu.value = true
                                             }
                                         )
                                     }
@@ -399,19 +415,40 @@ fun HomeScreen(
                 
                                     // 播放历史内容
                                     items(histories) { history ->
-                                        MovieCard(
-                                            movie = Movie(
-                                                id = history.movieDetailId,
-                                                title = history.movieTitle,
-                                                coverUrl = history.movieCoverUrl,
-                                                description = ""
-                                            ),
-                                            subtitle = history.episodeName,
-                                            onClick = {
-                                                viewModel.getMovieDetail(history.movieDetailId)
-                                                showDetail = true
+                                        Box {
+                                            MovieCard(
+                                                movie = Movie(
+                                                    id = history.movieDetailId,
+                                                    title = history.movieTitle,
+                                                    coverUrl = history.movieCoverUrl,
+                                                    description = ""
+                                                ),
+                                                subtitle = history.episodeName,
+                                                onClick = {
+                                                    viewModel.getMovieDetail(history.movieDetailId)
+                                                    showDetail = true
+                                                },
+                                                onLongClick = {
+                                                    selectedHistoryId.value = history.movieDetailId
+                                                    showMenu.value = true
+                                                }
+                                            )
+
+                                            if (showMenu.value && selectedHistoryId.value == history.movieDetailId) {
+                                                DropdownMenu(
+                                                    expanded = true,
+                                                    onDismissRequest = { showMenu.value = false }
+                                                ) {
+                                                    DropdownMenuItem(
+                                                        onClick = {
+                                                            viewModel.deletePlayHistory(context, history.movieDetailId)
+                                                            showMenu.value = false
+                                                        },
+                                                        text = { Text("删除") }
+                                                    )
+                                                }
                                             }
-                                        )
+                                        }
                                     }
                                 }
                 
@@ -432,6 +469,11 @@ fun HomeScreen(
                                             onClick = {
                                                 viewModel.getMovieDetail(movie.id)
                                                 showDetail = true
+                                            },
+                                            onLongClick = {
+                                                selectedHistoryId.value = movie.id
+                                                menuOffset.value = Offset.Zero
+                                                showMenu.value = true
                                             }
                                         )
                                     }
@@ -454,6 +496,11 @@ fun HomeScreen(
                                         onClick = {
                                             viewModel.getMovieDetail(movie.id)
                                             showDetail = true
+                                        },
+                                        onLongClick = {
+                                            selectedHistoryId.value = movie.id
+                                            menuOffset.value = Offset.Zero
+                                            showMenu.value = true
                                         }
                                     )
                                 }

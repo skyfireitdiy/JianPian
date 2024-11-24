@@ -111,4 +111,11 @@ object PlayHistoryManager {
             .apply()
         Log.d("PlayHistoryManager", "Cleared all histories")
     }
+
+    fun deleteHistory(context: Context, movieDetailId: String) {
+        val histories = getHistories(context).toMutableList()
+        val removedCount = histories.removeAll { it.movieDetailId == movieDetailId }
+        Log.d("PlayHistoryManager", "Deleted $removedCount history records for movie: $movieDetailId")
+        saveHistories(context, histories)
+    }
 }
