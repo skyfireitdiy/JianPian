@@ -26,4 +26,7 @@ interface ApiService {
         @Path("sid") sid: String,
         @Path("nid") nid: String
     ): String
+    
+    @GET("/")
+    suspend fun getHomePage(): String
 } 

@@ -201,4 +201,38 @@ object HtmlParser {
             Triple("", "", "")
         }
     }
+
+    fun parseHotMovies(html: String): List<Movie> {
+        Log.d("HtmlParser", "Parsing hot movies from HTML")
+        val doc = Jsoup.parse(html)
+        val elements = doc.select("#home0 li.stui-vodlist__item")
+        Log.d("HtmlParser", "Found ${elements.size} hot movie elements")
+        
+        return elements.mapNotNull { element ->
+            try {
+                val link = element.select("a.stui-vodlist__thumb").first()
+                val titleElement = element.select("h4.stui-vodlist__title a").first()
+                
+                val id = link?.attr("href")?.substringAfter("/jpvod/")?.substringBefore(".html") ?: ""
+                val title = titleElement?.text() ?: link?.attr("title") ?: ""
+                val coverUrl = link?.attr("data-original") ?: ""
+                
+                Log.d("HtmlParser", "Parsed hot movie: id=$id, title=$title")
+                
+                if (id.isNotEmpty() && title.isNotEmpty()) {
+                    Movie(
+                        id = id,
+                        title = title,
+                        coverUrl = coverUrl
+                    )
+                } else {
+                    Log.e("HtmlParser", "Invalid hot movie data: id=$id, title=$title")
+                    null
+                }
+            } catch (e: Exception) {
+                Log.e("HtmlParser", "Error parsing hot movie element", e)
+                null
+            }
+        }
+    }
 } 

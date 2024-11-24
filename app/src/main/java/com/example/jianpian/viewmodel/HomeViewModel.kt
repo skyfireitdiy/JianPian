@@ -47,6 +47,9 @@ class HomeViewModel : ViewModel() {
     private val _cacheProgress = MutableStateFlow(0)
     val cacheProgressFlow: StateFlow<Int> = _cacheProgress
     
+    private val _hotMovies = MutableStateFlow<List<Movie>>(emptyList())
+    val hotMovies: StateFlow<List<Movie>> = _hotMovies
+    
     private val okHttpClient = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
@@ -300,6 +303,21 @@ class HomeViewModel : ViewModel() {
             
             PlayUrlCache.saveUrls(context, movieDetail.id, urls)
             _playUrls.value = urls
+        }
+    }
+
+    fun loadHotMovies() {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val response = apiService.getHomePage()
+                val movies = HtmlParser.parseHotMovies(response)
+                _hotMovies.value = movies
+            } catch (e: Exception) {
+                Log.e("HomeViewModel", "Error loading hot movies", e)
+            } finally {
+                _isLoading.value = false
+            }
         }
     }
 } 
