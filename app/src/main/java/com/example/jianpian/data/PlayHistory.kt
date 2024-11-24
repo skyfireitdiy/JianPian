@@ -31,12 +31,12 @@ object PlayHistoryManager {
         val histories = getHistories(context).toMutableList()
         Log.d("PlayHistoryManager", "Current histories size: ${histories.size}")
         
-        // 移除相同剧集的旧记录
+        // 修改判断条件：只要是同一部电影就移除旧记录
         val removedCount = histories.count { 
-            it.movieDetailId == history.movieDetailId && it.episodeUrl == history.episodeUrl 
+            it.movieDetailId == history.movieDetailId  // 移除相同电影ID的所有记录
         }
         histories.removeAll { 
-            it.movieDetailId == history.movieDetailId && it.episodeUrl == history.episodeUrl 
+            it.movieDetailId == history.movieDetailId  // 移除相同电影ID的所有记录
         }
         Log.d("PlayHistoryManager", "Removed $removedCount old records")
         
@@ -73,18 +73,31 @@ object PlayHistoryManager {
         val json = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
             .getString(KEY_HISTORY, "[]")
         Log.d("PlayHistoryManager", "Loading histories from SharedPreferences")
-        Log.d("PlayHistoryManager", "Raw JSON: ${json?.take(200)}...")
         
         val type = object : TypeToken<List<PlayHistory>>() {}.type
         return try {
-            val histories = gson.fromJson<List<PlayHistory>>(json, type)
-            Log.d("PlayHistoryManager", "Loaded ${histories.size} histories")
-            histories.forEach { history ->
-                Log.d("PlayHistoryManager", "Loaded history: movieId=${history.movieDetailId}, " +
-                    "title=${history.movieTitle}, episode=${history.episodeName}, " +
-                    "position=${history.playbackPosition}")
+            val rawHistories = gson.fromJson<List<PlayHistory>>(json, type)
+            
+            // 对历史记录进行去重处理，只保留每部电影最新的一条记录
+            val uniqueHistories = rawHistories
+                .groupBy { it.movieDetailId } // 按电影ID分组
+                .map { (_, histories) -> 
+                    // 每组取时间戳最新的一条
+                    histories.maxByOrNull { it.timestamp }!! 
+                }
+                .sortedByDescending { it.timestamp } // 按时间戳降序排序
+                .take(MAX_HISTORY) // 确保不超过最大数量
+            
+            Log.d("PlayHistoryManager", "Loaded and deduplicated: original=${rawHistories.size}, " +
+                "unique=${uniqueHistories.size}")
+            
+            // 如果去重后的结果与原始数据不同，保存更新后的数据
+            if (uniqueHistories.size != rawHistories.size) {
+                Log.d("PlayHistoryManager", "Saving deduplicated histories")
+                saveHistories(context, uniqueHistories)
             }
-            histories
+            
+            uniqueHistories
         } catch (e: Exception) {
             Log.e("PlayHistoryManager", "Error loading histories", e)
             emptyList()

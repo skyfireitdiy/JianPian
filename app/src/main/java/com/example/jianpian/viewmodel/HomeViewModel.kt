@@ -267,14 +267,10 @@ class HomeViewModel : ViewModel() {
                         playbackPosition = playbackPosition
                     )
                     PlayHistoryManager.saveHistory(context, history)
-                    // 更新内存中的历史记录列表
-                    _histories.value = _histories.value.toMutableList().apply {
-                        removeAll { it.movieDetailId == movieDetailId && it.episodeUrl == episodeUrl }
-                        add(0, history)
-                        if (size > PlayHistoryManager.MAX_HISTORY) {
-                            removeAll(subList(PlayHistoryManager.MAX_HISTORY, size))
-                        }
-                    }
+                    
+                    // 更新内存中的历史记录列表，使用与 PlayHistoryManager 相同的去重逻辑
+                    _histories.value = PlayHistoryManager.getHistories(context)
+                    
                     Log.d("HomeViewModel", "Updated histories in memory")
                 } else {
                     Log.e("HomeViewModel", "Cannot save history: movie detail not available")
