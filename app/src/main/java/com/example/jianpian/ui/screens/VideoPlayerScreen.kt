@@ -19,15 +19,18 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.LoadControl
 import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.ui.PlayerView
 import androidx.tv.material3.*
 import com.example.jianpian.data.Episode
+import com.example.jianpian.data.Movie
 import com.example.jianpian.data.MovieDetail
+import com.example.jianpian.data.PlayHistory
+import com.example.jianpian.data.PlayHistoryManager
 import com.example.jianpian.viewmodel.HomeViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import android.util.Log
 import okhttp3.OkHttpClient
-import androidx.media3.datasource.DefaultHttpDataSource
 import java.util.concurrent.TimeUnit
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.KeyEvent
@@ -41,6 +44,7 @@ import kotlinx.coroutines.delay
 import android.view.WindowManager
 import androidx.compose.ui.platform.LocalView
 import android.content.Context
+import kotlinx.coroutines.*
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -66,6 +70,12 @@ fun VideoPlayerScreen(
                 repeatMode = Player.REPEAT_MODE_OFF
                 playWhenReady = true
                 videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
+                
+                addListener(object : Player.Listener {
+                    override fun onPlaybackStateChanged(playbackState: Int) {
+                        Log.d("VideoPlayerScreen", "Playback state changed: $playbackState")
+                    }
+                })
             }
     }
 
@@ -85,12 +95,97 @@ fun VideoPlayerScreen(
         }
     }
 
-    DisposableEffect(Unit) {
-        val originalFlags = view.keepScreenOn
-        view.keepScreenOn = true
+    DisposableEffect(context, exoPlayer) {
+        // 设置播放器监听器
+        var isFirstReady = true
+        var job: Job? = null
+        var positionRestored = false
+        var pendingSeekPosition: Long = -1
+        var initialHistoryLoaded = false
+        var hasHistory = false
+
+        // 预先加载历史记录
+        val histories = PlayHistoryManager.getHistories(context)
+        Log.d("VideoPlayerScreen", "Looking for history: movieId=${movieDetail.id}, episodeUrl=${currentEpisode.url}")
+        val lastHistory = histories.find { it.movieDetailId == movieDetail.id && it.episodeUrl == currentEpisode.url }
+        Log.d("VideoPlayerScreen", "Found history: $lastHistory")
         
+        // 如果有历史播放位置，先保存起来
+        lastHistory?.let { history ->
+            Log.d("VideoPlayerScreen", "History playback position: ${history.playbackPosition}")
+            if (history.playbackPosition > 0) {
+                pendingSeekPosition = history.playbackPosition
+                hasHistory = true
+            }
+        }
+
+        exoPlayer.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                Log.d("VideoPlayerScreen", "Playback state changed: $playbackState, isFirstReady: $isFirstReady")
+                
+                when (playbackState) {
+                    Player.STATE_READY -> {
+                        if (isFirstReady) {
+                            isFirstReady = false
+                            initialHistoryLoaded = true
+
+                            // 如果有待恢复的位置，现在恢复
+                            if (hasHistory && !positionRestored && pendingSeekPosition > 0) {
+                                Log.d("VideoPlayerScreen", "Seeking to position: $pendingSeekPosition")
+                                exoPlayer.seekTo(pendingSeekPosition)
+                                positionRestored = true
+                            }
+
+                            // 开始定期保存播放位置
+                            if (job == null) {
+                                Log.d("VideoPlayerScreen", "Starting position saving job")
+                                job = CoroutineScope(Dispatchers.Main).launch {
+                                    while (isActive) {
+                                        delay(5000) // 每5秒保存一次
+                                        val currentPosition = exoPlayer.currentPosition
+                                        val duration = exoPlayer.duration
+                                        Log.d("VideoPlayerScreen", "Current position: $currentPosition, Duration: $duration")
+                                        
+                                        if (currentPosition > 0 && duration > 0) {
+                                            viewModel.savePlayHistory(
+                                                context = context,
+                                                movieDetailId = movieDetail.id,
+                                                episodeName = currentEpisode.name,
+                                                episodeUrl = currentEpisode.url,
+                                                playbackPosition = currentPosition
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                Log.e("VideoPlayerScreen", "Player error", error)
+            }
+        })
+
         onDispose {
-            view.keepScreenOn = originalFlags
+            // 取消定期保存任务
+            job?.cancel()
+            
+            // 保存最终播放位置
+            val currentPosition = exoPlayer.currentPosition
+            val duration = exoPlayer.duration
+            Log.d("VideoPlayerScreen", "Final position: $currentPosition, Duration: $duration")
+            
+            if (currentPosition > 0 && duration > 0) {
+                viewModel.savePlayHistory(
+                    context = context,
+                    movieDetailId = movieDetail.id,
+                    episodeName = currentEpisode.name,
+                    episodeUrl = currentEpisode.url,
+                    playbackPosition = currentPosition
+                )
+            }
             exoPlayer.release()
         }
     }
@@ -158,4 +253,4 @@ fun VideoPlayerScreen(
             playerView?.hideController()
         }
     }
-} 
+}

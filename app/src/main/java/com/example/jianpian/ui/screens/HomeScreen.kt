@@ -173,21 +173,16 @@ fun HomeScreen(
         if (currentEpisode != null && currentMovie != null) {
             viewModel.savePlayHistory(
                 context,
-                Movie(
-                    id = currentMovie!!.id,
-                    title = currentMovie!!.title,
-                    coverUrl = currentMovie!!.coverUrl,
-                    description = currentMovie!!.description
-                ),
-                currentEpisode!!.name,
-                currentEpisode!!.url
+                movieDetailId = currentMovie!!.id,
+                episodeName = currentEpisode!!.name,
+                episodeUrl = currentEpisode!!.url
             )
         }
     }
     
     LaunchedEffect(currentMovie) {
         if (searchQuery.isEmpty() && currentMovie != null) {
-            histories.find { it.movie.id == currentMovie!!.id }?.let { history ->
+            histories.find { it.movieDetailId == currentMovie!!.id }?.let { history ->
                 currentMovie!!.episodes.find { it.url == history.episodeUrl }?.let { episode ->
                     currentEpisode = episode
                 }
@@ -380,7 +375,7 @@ fun HomeScreen(
                                                 Button(
                                                     onClick = {
                                                         histories.firstOrNull()?.let { history ->
-                                                            viewModel.getMovieDetail(history.movie.id)
+                                                            viewModel.getMovieDetail(history.movieDetailId)
                                                             showDetail = true
                                                         }
                                                     }
@@ -402,10 +397,15 @@ fun HomeScreen(
                                     // 播放历史内容
                                     items(histories) { history ->
                                         MovieCard(
-                                            movie = history.movie,
+                                            movie = Movie(
+                                                id = history.movieDetailId,
+                                                title = history.movieTitle,
+                                                coverUrl = history.movieCoverUrl,
+                                                description = ""
+                                            ),
                                             subtitle = history.episodeName,
                                             onClick = {
-                                                viewModel.getMovieDetail(history.movie.id)
+                                                viewModel.getMovieDetail(history.movieDetailId)
                                                 showDetail = true
                                             }
                                         )

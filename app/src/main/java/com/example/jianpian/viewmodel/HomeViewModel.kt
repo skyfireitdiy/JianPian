@@ -200,54 +200,87 @@ class HomeViewModel : ViewModel() {
 
     fun loadPlayHistories(context: Context) {
         viewModelScope.launch {
-            Log.d("HomeViewModel", "Loading play histories")
-            val histories = PlayHistoryManager.getHistories(context)
-            Log.d("HomeViewModel", "Loaded ${histories.size} histories")
-            
-            // 过滤掉无效的历史记录
-            val validHistories = histories.filter { 
-                it.movie.id.isNotEmpty() && it.movie.title.isNotEmpty()  // 同时检查ID和标题
-            }
-            Log.d("HomeViewModel", "Valid histories: ${validHistories.size}")
-            
-            if (validHistories.size != histories.size) {
-                Log.d("HomeViewModel", "Filtered out ${histories.size - validHistories.size} invalid histories")
-            }
-            
-            validHistories.forEach { history ->
-                Log.d("HomeViewModel", "Valid history: movie=${history.movie.title}, id=${history.movie.id}, episode=${history.episodeName}")
-            }
-            
-            _histories.value = validHistories
-            Log.d("HomeViewModel", "Updated histories state")
-            
-            // 如果没有搜索结果，显示历史记录
-            if (_movies.value.isEmpty()) {
-                Log.d("HomeViewModel", "No search results, showing histories as movies")
-                _movies.value = validHistories.map { it.movie }
+            try {
+                Log.d("HomeViewModel", "Loading play histories")
+                val histories = PlayHistoryManager.getHistories(context)
+                Log.d("HomeViewModel", "Loaded ${histories.size} histories")
+                
+                // 过滤掉无效的历史记录
+                val validHistories = histories.filter { history -> 
+                    try {
+                        // 检查所有必需字段是否有效
+                        !history.movieDetailId.isNullOrEmpty() &&
+                        !history.movieTitle.isNullOrEmpty() &&
+                        !history.movieCoverUrl.isNullOrEmpty() &&
+                        !history.episodeName.isNullOrEmpty() &&
+                        !history.episodeUrl.isNullOrEmpty()
+                    } catch (e: Exception) {
+                        Log.e("HomeViewModel", "Error checking history validity", e)
+                        false
+                    }
+                }
+                Log.d("HomeViewModel", "Valid histories: ${validHistories.size}")
+                
+                if (validHistories.size != histories.size) {
+                    Log.d("HomeViewModel", "Filtered out ${histories.size - validHistories.size} invalid histories")
+                    // 清除无效的历史记录
+                    PlayHistoryManager.saveHistories(context, validHistories)
+                }
+                
+                validHistories.forEach { history ->
+                    Log.d("HomeViewModel", "Valid history: movie=${history.movieTitle}, id=${history.movieDetailId}, episode=${history.episodeName}")
+                }
+                
+                _histories.value = validHistories
+                Log.d("HomeViewModel", "Updated histories state")
+                
+                // 如果没有搜索结果，显示历史记录
+                if (_movies.value.isEmpty()) {
+                    Log.d("HomeViewModel", "No search results, showing histories as movies")
+                    _movies.value = validHistories.map { history ->
+                        Movie(
+                            id = history.movieDetailId,
+                            title = history.movieTitle,
+                            coverUrl = history.movieCoverUrl,
+                            description = ""
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("HomeViewModel", "Error loading play histories", e)
             }
         }
     }
 
-    fun savePlayHistory(context: Context, movie: Movie, episodeName: String, episodeUrl: String) {
+    fun savePlayHistory(context: Context, movieDetailId: String, episodeName: String, episodeUrl: String, playbackPosition: Long = 0) {
         viewModelScope.launch {
-            if (movie.id.isNotEmpty() && movie.title.isNotEmpty()) {  // 添加标题检查
-                Log.d("HomeViewModel", "Saving play history for movie: id=${movie.id}, title=${movie.title}")
-                val history = PlayHistory(
-                    movie = Movie(
-                        id = movie.id,
-                        title = movie.title,  // 确保标题被保存
-                        coverUrl = movie.coverUrl,
-                        description = movie.description
-                    ),
-                    episodeName = episodeName,
-                    episodeUrl = episodeUrl
-                )
-                PlayHistoryManager.saveHistory(context, history)
-                Log.d("HomeViewModel", "Saved history, reloading histories")
-                loadPlayHistories(context)
+            if (movieDetailId.isNotEmpty()) {
+                val movieDetail = _currentMovie.value
+                if (movieDetail != null) {
+                    Log.d("HomeViewModel", "Saving play history for movie: id=$movieDetailId, title=${movieDetail.title}")
+                    val history = PlayHistory(
+                        movieDetailId = movieDetailId,
+                        movieTitle = movieDetail.title,
+                        movieCoverUrl = movieDetail.coverUrl,
+                        episodeName = episodeName,
+                        episodeUrl = episodeUrl,
+                        playbackPosition = playbackPosition
+                    )
+                    PlayHistoryManager.saveHistory(context, history)
+                    // 更新内存中的历史记录列表
+                    _histories.value = _histories.value.toMutableList().apply {
+                        removeAll { it.movieDetailId == movieDetailId && it.episodeUrl == episodeUrl }
+                        add(0, history)
+                        if (size > PlayHistoryManager.MAX_HISTORY) {
+                            removeAll(subList(PlayHistoryManager.MAX_HISTORY, size))
+                        }
+                    }
+                    Log.d("HomeViewModel", "Updated histories in memory")
+                } else {
+                    Log.e("HomeViewModel", "Cannot save history: movie detail not available")
+                }
             } else {
-                Log.e("HomeViewModel", "Cannot save history: invalid movie data - id=${movie.id}, title=${movie.title}")
+                Log.e("HomeViewModel", "Cannot save history: invalid movie id")
             }
         }
     }
