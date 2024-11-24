@@ -205,34 +205,45 @@ object HtmlParser {
     fun parseHotMovies(html: String): List<Movie> {
         Log.d("HtmlParser", "Parsing hot movies from HTML")
         val doc = Jsoup.parse(html)
-        val elements = doc.select("#home0 li.stui-vodlist__item")
-        Log.d("HtmlParser", "Found ${elements.size} hot movie elements")
+        val allElements = mutableListOf<Movie>()
         
-        return elements.mapNotNull { element ->
-            try {
-                val link = element.select("a.stui-vodlist__thumb").first()
-                val titleElement = element.select("h4.stui-vodlist__title a").first()
-                
-                val id = link?.attr("href")?.substringAfter("/jpvod/")?.substringBefore(".html") ?: ""
-                val title = titleElement?.text() ?: link?.attr("title") ?: ""
-                val coverUrl = link?.attr("data-original") ?: ""
-                
-                Log.d("HtmlParser", "Parsed hot movie: id=$id, title=$title")
-                
-                if (id.isNotEmpty() && title.isNotEmpty()) {
-                    Movie(
-                        id = id,
-                        title = title,
-                        coverUrl = coverUrl
-                    )
-                } else {
-                    Log.e("HtmlParser", "Invalid hot movie data: id=$id, title=$title")
+        // 获取所有分类的内容（电影、连续剧、综艺、动漫）
+        for (i in 0..3) {
+            val elements = doc.select("#home$i li.stui-vodlist__item")
+            Log.d("HtmlParser", "Found ${elements.size} items in category $i")
+            
+            val movies = elements.mapNotNull { element ->
+                try {
+                    val link = element.select("a.stui-vodlist__thumb").first()
+                    val titleElement = element.select("h4.stui-vodlist__title a").first()
+                    
+                    val id = link?.attr("href")?.substringAfter("/jpvod/")?.substringBefore(".html") ?: ""
+                    val title = titleElement?.text() ?: link?.attr("title") ?: ""
+                    val coverUrl = link?.attr("data-original") ?: ""
+                    val status = link?.select("span.pic-text")?.text() ?: ""
+                    
+                    Log.d("HtmlParser", "Parsed item: id=$id, title=$title")
+                    
+                    if (id.isNotEmpty() && title.isNotEmpty()) {
+                        Movie(
+                            id = id,
+                            title = title,
+                            coverUrl = coverUrl,
+                            description = status
+                        )
+                    } else {
+                        Log.e("HtmlParser", "Invalid item data: id=$id, title=$title")
+                        null
+                    }
+                } catch (e: Exception) {
+                    Log.e("HtmlParser", "Error parsing element", e)
                     null
                 }
-            } catch (e: Exception) {
-                Log.e("HtmlParser", "Error parsing hot movie element", e)
-                null
             }
+            allElements.addAll(movies)
         }
+        
+        Log.d("HtmlParser", "Total parsed items: ${allElements.size}")
+        return allElements
     }
 } 

@@ -458,7 +458,7 @@ fun HomeScreen(
 
                             // 加载更多
                             item(span = { TvGridItemSpan(6) }) {
-                                if (!isLoading) {
+                                if (searchQuery.isNotEmpty() && !isLoading) {
                                     LaunchedEffect(Unit) {
                                         viewModel.loadNextPage()
                                     }
