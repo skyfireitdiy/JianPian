@@ -33,6 +33,12 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.sp
 import com.example.jianpian.data.PlayHistory
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -49,6 +55,9 @@ fun HomeScreen(
     val currentMovie by viewModel.currentMovie.collectAsState()
     var showDetail by remember { mutableStateOf(false) }
     var currentEpisode by remember { mutableStateOf<Episode?>(null) }
+    
+    // 添加 FocusRequester
+    val searchFocusRequester = remember { FocusRequester() }
     
     BackHandler {
         when {
@@ -67,6 +76,7 @@ fun HomeScreen(
     LaunchedEffect(Unit) {
         viewModel.loadPlayHistories(context)
         viewModel.loadFavorites(context)
+        searchFocusRequester.requestFocus()
     }
     
     LaunchedEffect(currentEpisode) {
@@ -140,40 +150,61 @@ fun HomeScreen(
                         .padding(16.dp)
                 ) {
                     // Search bar
-                    BasicTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
+                    var isSearchFocused by remember { mutableStateOf(false) }
+
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color.DarkGray.copy(alpha = 0.3f))
-                            .padding(16.dp)
-                            .focusable(),
-                        decorationBox = { innerTextField ->
-                            Box(
-                                modifier = Modifier.fillMaxWidth(),
-                                contentAlignment = Alignment.CenterStart
-                            ) {
-                                if (searchQuery.isEmpty()) {
-                                    Text(
-                                        text = "搜索电影...",
-                                        color = Color.Gray
-                                    )
+                            .background(
+                                color = if (isSearchFocused) Color.DarkGray else Color.DarkGray.copy(alpha = 0.3f),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                            )
+                            .border(
+                                width = if (isSearchFocused) 2.dp else 0.dp,
+                                color = if (isSearchFocused) Color.White else Color.Transparent,
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                            )
+                            .onFocusChanged { 
+                                isSearchFocused = it.isFocused
+                            }
+                    ) {
+                        BasicTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                                .focusRequester(searchFocusRequester)
+                                .focusable(),
+                            decorationBox = { innerTextField ->
+                                Box(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentAlignment = Alignment.CenterStart
+                                ) {
+                                    if (searchQuery.isEmpty()) {
+                                        Text(
+                                            text = "搜索电影...",
+                                            color = if (isSearchFocused) Color.LightGray else Color.Gray
+                                        )
+                                    }
+                                    innerTextField()
                                 }
-                                innerTextField()
-                            }
-                        },
-                        textStyle = androidx.compose.ui.text.TextStyle(
-                            color = Color.White
-                        ),
-                        keyboardOptions = KeyboardOptions(
-                            imeAction = ImeAction.Search
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onSearch = {
-                                viewModel.searchMovies(searchQuery)
-                            }
+                            },
+                            textStyle = androidx.compose.ui.text.TextStyle(
+                                color = Color.White,
+                                fontSize = 16.sp
+                            ),
+                            keyboardOptions = KeyboardOptions(
+                                imeAction = ImeAction.Search
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onSearch = {
+                                    viewModel.searchMovies(searchQuery)
+                                }
+                            ),
+                            cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White)
                         )
-                    )
+                    }
                     
                     Spacer(modifier = Modifier.height(16.dp))
                     
