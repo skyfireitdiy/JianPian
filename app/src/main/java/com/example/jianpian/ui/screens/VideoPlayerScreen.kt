@@ -54,65 +54,18 @@ fun VideoPlayerScreen(
 ) {
     val context = LocalContext.current
     val view = LocalView.current
-    val window = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     val playUrls by viewModel.playUrls.collectAsState()
     
     var playerView by remember { mutableStateOf<PlayerView?>(null) }
     var isControllerShowing by remember { mutableStateOf(false) }
     
     val exoPlayer = remember {
-        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
-            .setConnectTimeoutMs(15000)
-            .setReadTimeoutMs(15000)
-            .setAllowCrossProtocolRedirects(true)
-            .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
-        
         ExoPlayer.Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(httpDataSourceFactory))
-            .setLoadControl(
-                DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(
-                        DefaultLoadControl.DEFAULT_MIN_BUFFER_MS / 2,
-                        DefaultLoadControl.DEFAULT_MAX_BUFFER_MS / 2,
-                        DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS / 2,
-                        DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS / 2
-                    )
-                    .setPrioritizeTimeOverSizeThresholds(true)
-                    .build()
-            )
-            .setWakeMode(C.WAKE_MODE_NETWORK)
-            .build()
-            .apply {
+            .setMediaSourceFactory(DefaultMediaSourceFactory(DefaultHttpDataSource.Factory()))
+            .build().apply {
                 repeatMode = Player.REPEAT_MODE_OFF
                 playWhenReady = true
                 videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
-                
-                addListener(object : Player.Listener {
-                    override fun onPlaybackStateChanged(state: Int) {
-                        when (state) {
-                            Player.STATE_BUFFERING -> {
-                                Log.d("VideoPlayer", "Buffering...")
-                            }
-                            Player.STATE_READY -> {
-                                Log.d("VideoPlayer", "Ready to play")
-                            }
-                            Player.STATE_ENDED -> {
-                                val currentIndex = movieDetail.episodes.indexOf(currentEpisode)
-                                if (currentIndex < movieDetail.episodes.size - 1) {
-                                    onNextEpisode()
-                                }
-                            }
-                            Player.STATE_IDLE -> {
-                                Log.d("VideoPlayer", "Player idle")
-                            }
-                        }
-                    }
-
-                    override fun onPlayerError(error: PlaybackException) {
-                        Log.e("VideoPlayer", "Player error", error)
-                        // 可以在这里添加重试逻辑
-                    }
-                })
             }
     }
 
@@ -138,6 +91,7 @@ fun VideoPlayerScreen(
         
         onDispose {
             view.keepScreenOn = originalFlags
+            exoPlayer.release()
         }
     }
 
@@ -189,17 +143,6 @@ fun VideoPlayerScreen(
                             isControllerShowing = visibility == android.view.View.VISIBLE
                         }
                     )
-                    
-                    player?.addListener(object : Player.Listener {
-                        override fun onPlaybackStateChanged(playbackState: Int) {
-                            when (playbackState) {
-                                Player.STATE_READY -> {
-                                    showController()
-                                    postDelayed({ hideController() }, 1000)
-                                }
-                            }
-                        }
-                    })
                     
                     playerView = this
                 }
