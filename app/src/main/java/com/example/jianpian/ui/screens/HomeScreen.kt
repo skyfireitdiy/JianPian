@@ -45,6 +45,12 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.coroutineScope
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -52,13 +58,14 @@ private fun MovieCard(
     movie: Movie,
     subtitle: String? = null,
     onClick: () -> Unit,
-    onLongClick: () -> Unit
+    onLongClick: () -> Unit,
+    modifier: Modifier
 ) {
     var isImageLoading by remember { mutableStateOf(true) }
     var isImageError by remember { mutableStateOf(false) }
     
     Card(
-        modifier = Modifier
+        modifier = modifier
             .width(160.dp)
             .height(240.dp),
         onClick = onClick,
@@ -156,45 +163,67 @@ fun HomeScreen(
     var showDetail by remember { mutableStateOf(false) }
     var currentEpisode by remember { mutableStateOf<Episode?>(null) }
     
-    // 添加 FocusRequester
+    // 添加菜单相关的状态
+    var showMenu by remember { mutableStateOf(false) }
+    var selectedHistoryId by remember { mutableStateOf("") }
+    
+    // 添加焦点请求器和状态
     val searchFocusRequester = remember { FocusRequester() }
+    val historyFocusRequester = remember { FocusRequester() }
+    val favoriteFocusRequester = remember { FocusRequester() }
+    var initialFocusSet by remember { mutableStateOf(false) }
     
-    // 修改菜单状态管理
-    val showMenu = remember { mutableStateOf(false) }
-    val selectedHistoryId = remember { mutableStateOf("") }
+    // 添加数据加载状态追踪
+    var historiesLoaded by remember { mutableStateOf(false) }
+    var favoritesLoaded by remember { mutableStateOf(false) }
+    var hotMoviesLoaded by remember { mutableStateOf(false) }
     
-    BackHandler {
-        when {
-            showMenu.value -> {
-                // 如果菜单打开，先关闭菜单
-                showMenu.value = false
-            }
-            currentEpisode != null -> {
-                // 如果在播放器中，返回到详情页
-                currentEpisode = null
-                showDetail = true
-            }
-            showDetail -> {
-                // 如果在详情页，返回到列表页
-                showDetail = false
-            }
-            searchQuery.isNotEmpty() -> {
-                // 如果有搜索内容，清空搜索
-                searchQuery = ""
-                viewModel.clearSearchResults()
-            }
-            else -> {
-                // 如果在首页，退出应用
-                onBackPressed()
-            }
-        }
-    }
-    
+    // 加载数据
     LaunchedEffect(Unit) {
         viewModel.loadPlayHistories(context)
         viewModel.loadFavorites(context)
         viewModel.loadHotMovies()
-        searchFocusRequester.requestFocus()
+    }
+    
+    // 监听数据加载状态
+    LaunchedEffect(histories) {
+        if (histories.isNotEmpty()) {
+            historiesLoaded = true
+        }
+    }
+    
+    LaunchedEffect(favorites) {
+        if (favorites.isNotEmpty()) {
+            favoritesLoaded = true
+        }
+    }
+    
+    LaunchedEffect(hotMovies) {
+        if (hotMovies.isNotEmpty()) {
+            hotMoviesLoaded = true
+        }
+    }
+    
+    // 处理初始焦点和从详情页返回时的焦点
+    LaunchedEffect(historiesLoaded, favoritesLoaded, hotMoviesLoaded, showDetail) {
+        if (!showDetail && !initialFocusSet) {
+            delay(500) // 给UI一些时间来初始化
+            try {
+                if (historiesLoaded) {
+                    historyFocusRequester.requestFocus()
+                    Log.d("HomeScreen", "Set focus to history")
+                } else if (favoritesLoaded) {
+                    favoriteFocusRequester.requestFocus()
+                    Log.d("HomeScreen", "Set focus to favorite")
+                } else {
+                    searchFocusRequester.requestFocus()
+                    Log.d("HomeScreen", "Set focus to search")
+                }
+                initialFocusSet = true
+            } catch (e: Exception) {
+                Log.e("HomeScreen", "Error setting focus", e)
+            }
+        }
     }
     
     LaunchedEffect(currentEpisode) {
@@ -214,6 +243,29 @@ fun HomeScreen(
                 currentMovie!!.episodes.find { it.url == history.episodeUrl }?.let { episode ->
                     currentEpisode = episode
                 }
+            }
+        }
+    }
+    
+    BackHandler {
+        when {
+            showMenu -> {
+                showMenu = false
+            }
+            currentEpisode != null -> {
+                currentEpisode = null
+                showDetail = true
+            }
+            showDetail -> {
+                showDetail = false
+                initialFocusSet = false  // 重置焦点状态
+            }
+            searchQuery.isNotEmpty() -> {
+                searchQuery = ""
+                viewModel.clearSearchResults()
+            }
+            else -> {
+                onBackPressed()
             }
         }
     }
@@ -345,48 +397,6 @@ fun HomeScreen(
                         ) {
                             // 根 searchQuery 显示不的内容
                             if (searchQuery.isEmpty()) {
-                                // 收藏列表标题
-                                if (favorites.isNotEmpty()) {
-                                    item(span = { TvGridItemSpan(6) }) {
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(vertical = 8.dp),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                text = "我的收藏",
-                                                fontSize = 20.sp,
-                                                color = Color.White
-                                            )
-                                            
-                                            Button(
-                                                onClick = {
-                                                    viewModel.clearFavorites(context)
-                                                }
-                                            ) {
-                                                Text("清除收藏")
-                                            }
-                                        }
-                                    }
-                
-                                    // 收藏列表内容
-                                    items(favorites) { favorite ->
-                                        MovieCard(
-                                            movie = favorite.movie,
-                                            onClick = {
-                                                viewModel.getMovieDetail(favorite.movie.id)
-                                                showDetail = true
-                                            },
-                                            onLongClick = {
-                                                selectedHistoryId.value = favorite.movie.id
-                                                showMenu.value = true
-                                            }
-                                        )
-                                    }
-                                }
-                
                                 // 播放历史标题
                                 if (histories.isNotEmpty()) {
                                     item(span = { TvGridItemSpan(6) }) {
@@ -442,9 +452,9 @@ fun HomeScreen(
                                                 subtitle = history.episodeName,
                                                 onClick = {
                                                     Log.d("HomeScreen", "MovieCard onClick - ${history.movieTitle}")
-                                                    if (showMenu.value) {
+                                                    if (showMenu) {
                                                         Log.d("HomeScreen", "Closing menu - ${history.movieTitle}")
-                                                        showMenu.value = false
+                                                        showMenu = false
                                                     } else {
                                                         Log.d("HomeScreen", "Opening detail - ${history.movieTitle}")
                                                         viewModel.getMovieDetail(history.movieDetailId)
@@ -453,18 +463,24 @@ fun HomeScreen(
                                                 },
                                                 onLongClick = {
                                                     Log.d("HomeScreen", "MovieCard onLongClick - ${history.movieTitle}")
-                                                    selectedHistoryId.value = history.movieDetailId
-                                                    showMenu.value = true
+                                                    selectedHistoryId = history.movieDetailId
+                                                    showMenu = true
+                                                },
+                                                modifier = if (histories.indexOf(history) == 0) {
+                                                    Log.d("HomeScreen", "Adding focus requester to first history item")
+                                                    Modifier.focusRequester(historyFocusRequester)
+                                                } else {
+                                                    Modifier
                                                 }
                                             )
 
-                                            if (showMenu.value && selectedHistoryId.value == history.movieDetailId) {
+                                            if (showMenu && selectedHistoryId == history.movieDetailId) {
                                                 var menuFocused by remember { mutableStateOf(false) }
                                                 var isFirstClick by remember { mutableStateOf(true) }
                                                 
                                                 DropdownMenu(
                                                     expanded = true,
-                                                    onDismissRequest = { showMenu.value = false },
+                                                    onDismissRequest = { showMenu = false },
                                                     properties = PopupProperties(
                                                         focusable = true,
                                                         dismissOnBackPress = true,
@@ -495,13 +511,60 @@ fun HomeScreen(
                                                                 Log.d("HomeScreen", "Skipping first click")
                                                             } else if (menuFocused) {
                                                                 viewModel.deletePlayHistory(context, history.movieDetailId)
-                                                                showMenu.value = false
+                                                                showMenu = false
                                                             }
                                                         }
                                                     )
                                                 }
                                             }
                                         }
+                                    }
+                                }
+                
+                                // 收藏列表标题
+                                if (favorites.isNotEmpty()) {
+                                    item(span = { TvGridItemSpan(6) }) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 8.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "我的收藏",
+                                                fontSize = 20.sp,
+                                                color = Color.White
+                                            )
+                                            
+                                            Button(
+                                                onClick = {
+                                                    viewModel.clearFavorites(context)
+                                                }
+                                            ) {
+                                                Text("清除收藏")
+                                            }
+                                        }
+                                    }
+                
+                                    // 收藏列表内容
+                                    items(favorites) { favorite ->
+                                        MovieCard(
+                                            movie = favorite.movie,
+                                            onClick = {
+                                                viewModel.getMovieDetail(favorite.movie.id)
+                                                showDetail = true
+                                            },
+                                            onLongClick = {
+                                                selectedHistoryId = favorite.movie.id
+                                                showMenu = true
+                                            },
+                                            modifier = if (favorites.indexOf(favorite) == 0) {
+                                                Modifier.focusRequester(favoriteFocusRequester)
+                                            } else {
+                                                Modifier
+                                            }
+                                        )
                                     }
                                 }
                 
@@ -524,9 +587,10 @@ fun HomeScreen(
                                                 showDetail = true
                                             },
                                             onLongClick = {
-                                                selectedHistoryId.value = movie.id
-                                                showMenu.value = true
-                                            }
+                                                selectedHistoryId = movie.id
+                                                showMenu = true
+                                            },
+                                            modifier = Modifier
                                         )
                                     }
                                 }
@@ -550,9 +614,15 @@ fun HomeScreen(
                                             showDetail = true
                                         },
                                         onLongClick = {
-                                            selectedHistoryId.value = movie.id
-                                            showMenu.value = true
-                                        }
+                                            selectedHistoryId = movie.id
+                                            showMenu = true
+                                        },
+                                        modifier = Modifier.then(
+                                            if (movies.indexOf(movie) == 0) 
+                                                Modifier.focusRequester(favoriteFocusRequester)
+                                            else 
+                                                Modifier
+                                        )
                                     )
                                 }
                             }

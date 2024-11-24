@@ -23,6 +23,9 @@ import androidx.compose.ui.platform.LocalContext
 import com.example.jianpian.data.Movie
 import com.example.jianpian.viewmodel.HomeViewModel
 import com.example.jianpian.data.PlayUrlCache
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -37,6 +40,7 @@ fun DetailScreen(
     var isCaching by remember { mutableStateOf(false) }
     var cacheProgress by remember { mutableStateOf(0f) }
     var isCached by remember { mutableStateOf(false) }
+    val firstEpisodeFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(movieDetail.id) {
         isFavorite = viewModel.isFavorite(context, movieDetail.id)
@@ -61,6 +65,11 @@ fun DetailScreen(
                 }
             }
         }
+    }
+
+    LaunchedEffect(Unit) {
+        delay(100)
+        firstEpisodeFocusRequester.requestFocus()
     }
 
     Log.d("DetailScreen", "Displaying movie detail: ${movieDetail.title}")
@@ -185,7 +194,7 @@ fun DetailScreen(
                 }
             }
 
-            // 在播放列表标题旁添加缓存状���和操作
+            // 在播放列表标题旁添加缓存状和操作
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -265,21 +274,19 @@ fun DetailScreen(
                 contentPadding = PaddingValues(bottom = 16.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(240.dp)  // 固定高度，可以根据需要调整
+                    .height(240.dp)
             ) {
                 items(movieDetail.episodes) { episode ->
                     Button(
                         onClick = { onPlayClick(episode) },
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp)
+                            .padding(4.dp)
+                            .focusRequester(
+                                if (episode == movieDetail.episodes.first()) firstEpisodeFocusRequester 
+                                else remember { FocusRequester() }
+                            )
                     ) {
-                        Text(
-                            text = episode.name,
-                            color = Color.White,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Text(episode.name)
                     }
                 }
             }
