@@ -6,6 +6,8 @@ import com.example.jianpian.data.MovieDetail
 import com.example.jianpian.data.Episode
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
+import com.example.jianpian.data.CategoryFilters
+import com.example.jianpian.data.FilterItem
 
 object HtmlParser {
     fun parseMovieList(html: String): List<Movie> {
@@ -246,4 +248,44 @@ object HtmlParser {
         Log.d("HtmlParser", "Total parsed items: ${allElements.size}")
         return allElements
     }
-} 
+
+    fun parseCategoryFilters(html: String): CategoryFilters {
+        val doc = Jsoup.parse(html)
+        val filterLists = doc.select(".stui-screen__list")
+        
+        fun parseFilterItems(element: org.jsoup.nodes.Element): List<FilterItem> {
+            return element.select("a").map { 
+                FilterItem(
+                    name = it.text().trim(),
+                    url = it.attr("href")
+                )
+            }.filter { it.name.isNotEmpty() }
+        }
+        
+        val types = filterLists.getOrNull(0)?.let { parseFilterItems(it) } ?: emptyList()
+        val regions = filterLists.getOrNull(1)?.let { parseFilterItems(it) } ?: emptyList()
+        val years = filterLists.getOrNull(2)?.let { parseFilterItems(it) } ?: emptyList()
+        val languages = filterLists.getOrNull(3)?.let { parseFilterItems(it) } ?: emptyList()
+        val letters = filterLists.getOrNull(4)?.let { parseFilterItems(it) } ?: emptyList()
+
+        Log.d("HtmlParser", "Parsed filters: types=${types.size}, regions=${regions.size}, " +
+            "years=${years.size}, languages=${languages.size}, letters=${letters.size}")
+
+        return CategoryFilters(
+            types = types,
+            regions = regions,
+            years = years,
+            languages = languages,
+            letters = letters
+        )
+    }
+}
+
+// 添加数据类来保存过滤选项
+data class CategoryFilters(
+    val types: List<FilterItem> = emptyList(),
+    val regions: List<FilterItem> = emptyList(),
+    val years: List<FilterItem> = emptyList(),
+    val languages: List<FilterItem> = emptyList(),
+    val letters: List<FilterItem> = emptyList()
+) 

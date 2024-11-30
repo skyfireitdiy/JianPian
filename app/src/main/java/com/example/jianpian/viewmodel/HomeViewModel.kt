@@ -4,11 +4,12 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.jianpian.data.Movie
-import com.example.jianpian.data.MovieDetail
-import com.example.jianpian.data.PlayHistory
+import com.example.jianpian.data.*
 import com.example.jianpian.network.ApiService
 import com.example.jianpian.network.HtmlParser
+import com.example.jianpian.data.PlayHistory
+import com.example.jianpian.data.Movie
+import com.example.jianpian.data.MovieDetail
 import com.example.jianpian.data.PlayHistoryManager
 import com.example.jianpian.data.Favorite
 import com.example.jianpian.data.FavoriteManager
@@ -21,6 +22,12 @@ import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.scalars.ScalarsConverterFactory
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLSocketFactory
+import javax.net.ssl.X509TrustManager
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
+import com.example.jianpian.data.CategoryFilters
 
 class HomeViewModel : ViewModel() {
     private val _movies = MutableStateFlow<List<Movie>>(emptyList())
@@ -50,11 +57,45 @@ class HomeViewModel : ViewModel() {
     private val _hotMovies = MutableStateFlow<List<Movie>>(emptyList())
     val hotMovies: StateFlow<List<Movie>> = _hotMovies
     
+    private val _showSubCategories = MutableStateFlow(false)
+    val showSubCategories: StateFlow<Boolean> = _showSubCategories
+    
+    private val _categoryFilters = MutableStateFlow(CategoryFilters())
+    val categoryFilters: StateFlow<CategoryFilters> = _categoryFilters
+    
+    val movieSubCategories = listOf(
+        "动作片", "喜剧片", "爱情片", "科幻片", 
+        "恐怖片", "剧情片", "战争片", "纪录片", 
+        "动画片", "4K电影"
+    )
+    
+    val regions = listOf(
+        "大陆", "香港", "台湾", "日本", "韩国", 
+        "泰国", "美国", "法国", "英国", "德国", 
+        "印度", "其他"
+    )
+    
+    val years = listOf(
+        "2024", "2023", "2022", "2021", "2020",
+        "2019", "2018", "2017", "2016", "2015",
+        "2014", "2013", "2012"
+    )
+    
+    val languages = listOf(
+        "国语", "粤语", "英语", "日语", "韩语",
+        "法语", "德语", "西班牙语", "俄语", "泰语", "其他"
+    )
+    
     private val okHttpClient = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
+        .hostnameVerifier { _, _ -> true }
+        .sslSocketFactory(
+            TrustAllCerts.createSSLSocketFactory(),
+            TrustAllCerts.trustAllManager
+        )
         .build()
     
     private val apiService = Retrofit.Builder()
@@ -366,12 +407,12 @@ class HomeViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-                currentPage = 1
-                currentKeyword = ""
-                isLastPage = false
+                _showSubCategories.value = true
                 
-                // 构建分类URL
-                val response = apiService.getCategoryMovies(categoryId, 1)
+                val response = apiService.getCategoryPage(categoryId)
+                // 解析过滤选项
+                _categoryFilters.value = HtmlParser.parseCategoryFilters(response)
+                // 解析电影列表
                 val movies = HtmlParser.parseMovieList(response)
                 _movies.value = movies
                 
@@ -381,5 +422,37 @@ class HomeViewModel : ViewModel() {
                 _isLoading.value = false
             }
         }
+    }
+
+    fun handleFilterClick(filterItem: FilterItem) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                
+                // 从 URL 中提取参数并请求新的页面
+                val response = apiService.getFilterPage(filterItem.url)
+                val movies = HtmlParser.parseMovieList(response)
+                _movies.value = movies
+                
+            } catch (e: Exception) {
+                Log.e("HomeViewModel", "Error handling filter click", e)
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+}
+
+private object TrustAllCerts {
+    val trustAllManager = object : X509TrustManager {
+        override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+        override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+        override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+    }
+
+    fun createSSLSocketFactory(): SSLSocketFactory {
+        val sslContext = SSLContext.getInstance("TLS")
+        sslContext.init(null, arrayOf(trustAllManager), SecureRandom())
+        return sslContext.socketFactory
     }
 } 

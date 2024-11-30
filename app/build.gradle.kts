@@ -85,4 +85,10 @@ dependencies {
     // Debug dependencies
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    // FlowRow 依赖
+    implementation("com.google.accompanist:accompanist-flowlayout:0.32.0")
+
+    // 添加 lifecycle-runtime-compose 依赖
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
 }

@@ -5,6 +5,7 @@ import retrofit2.http.Field
 import retrofit2.http.FormUrlEncoded
 import retrofit2.http.GET
 import retrofit2.http.Path
+import retrofit2.http.Url
 
 interface ApiService {
     @FormUrlEncoded
@@ -35,4 +36,10 @@ interface ApiService {
         @Path("category") category: Int,
         @Path("page") page: Int
     ): String
+
+    @GET("jplist/{category}.html")
+    suspend fun getCategoryPage(@Path("category") category: Int): String
+
+    @GET
+    suspend fun getFilterPage(@Url url: String): String
 } 
