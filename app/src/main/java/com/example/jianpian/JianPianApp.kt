@@ -8,21 +8,38 @@ import coil.memory.MemoryCache
 import coil.util.DebugLogger
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLSocketFactory
+import javax.net.ssl.X509TrustManager
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
 
 class JianPianApp : Application(), ImageLoaderFactory {
     companion object {
         lateinit var instance: JianPianApp
             private set
         
-        // 100MB 的最大缓存大小
-        private const val MAX_DISK_CACHE_SIZE = 100 * 1024 * 1024L // 100MB
-        // 内存缓存使用可用内存的 15%
-        private const val MEMORY_CACHE_PERCENT = 0.15
+        private const val MEMORY_CACHE_PERCENT = 0.15  // 使用15%的可用内存作为内存缓存
+        private const val MAX_DISK_CACHE_SIZE = 100L * 1024 * 1024  // 100MB
     }
 
     override fun onCreate() {
         super.onCreate()
         instance = this
+    }
+
+    private object TrustAllCerts {
+        val trustAllManager = object : X509TrustManager {
+            override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+            override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+            override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+        }
+
+        fun createSSLSocketFactory(): SSLSocketFactory {
+            val sslContext = SSLContext.getInstance("TLS")
+            sslContext.init(null, arrayOf(trustAllManager), SecureRandom())
+            return sslContext.socketFactory
+        }
     }
 
     override fun newImageLoader(): ImageLoader {
@@ -34,22 +51,27 @@ class JianPianApp : Application(), ImageLoaderFactory {
                     .readTimeout(30, TimeUnit.SECONDS)
                     .writeTimeout(30, TimeUnit.SECONDS)
                     .retryOnConnectionFailure(true)
+                    .hostnameVerifier { _, _ -> true }
+                    .sslSocketFactory(
+                        TrustAllCerts.createSSLSocketFactory(),
+                        TrustAllCerts.trustAllManager
+                    )
                     .build()
             }
             .memoryCache {
                 MemoryCache.Builder(this)
-                    .maxSizePercent(MEMORY_CACHE_PERCENT)  // 使用15%的可用内存作为内存缓存
+                    .maxSizePercent(MEMORY_CACHE_PERCENT)
                     .build()
             }
             .diskCache {
                 DiskCache.Builder()
-                    .directory(this.cacheDir.resolve("movie_covers"))  // 指定缓存目录
-                    .maxSizeBytes(MAX_DISK_CACHE_SIZE)  // 设置最大缓存大小为100MB
+                    .directory(this.cacheDir.resolve("movie_covers"))
+                    .maxSizeBytes(MAX_DISK_CACHE_SIZE)
                     .build()
             }
             .logger(DebugLogger())
-            .respectCacheHeaders(false)  // 忽略服务器的缓存控制头
-            .allowRgb565(true)  // 允许使用 RGB565 格式，可以减少内存占用
+            .respectCacheHeaders(false)
+            .allowRgb565(true)
             .build()
     }
 } 
