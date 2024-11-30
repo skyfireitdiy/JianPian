@@ -296,6 +296,9 @@ fun HomeScreen(
                 searchQuery = ""
                 viewModel.clearSearchResults()
             }
+            showSubCategories -> {  // 添加这个条件
+                viewModel.resetCategoryPage()  // 使用 ViewModel 中的方法来重置状态
+            }
             else -> {
                 onBackPressed()
             }

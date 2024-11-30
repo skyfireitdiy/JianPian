@@ -166,7 +166,7 @@ class HomeViewModel : ViewModel() {
                 _movies.value = _movies.value + newMovies
             } catch (e: Exception) {
                 Log.e("HomeViewModel", "Error loading next page", e)
-                currentPage--  // 恢复页码，以便重试
+                currentPage--  // 恢复页码���以便重试
             } finally {
                 isLoadingNextPage = false
             }
@@ -482,6 +482,18 @@ class HomeViewModel : ViewModel() {
             } finally {
                 _isLoading.value = false
             }
+        }
+    }
+
+    fun resetCategoryPage() {
+        viewModelScope.launch {
+            _showSubCategories.value = false
+            currentCategory = 0
+            categoryPage = 1
+            isCategoryLastPage = false
+            isLoadingCategoryNextPage = false
+            _movies.value = emptyList()
+            loadHotMovies()  // 重新加载首页内容
         }
     }
 }
