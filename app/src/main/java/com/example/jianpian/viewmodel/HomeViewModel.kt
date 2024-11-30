@@ -109,6 +109,11 @@ class HomeViewModel : ViewModel() {
     private var currentKeyword = ""
     private var isLastPage = false
     private var isLoadingNextPage = false
+    
+    private var currentCategory = 0
+    private var categoryPage = 1
+    private var isCategoryLastPage = false
+    private var isLoadingCategoryNextPage = false
 
     fun searchMovies(keyword: String) {
         viewModelScope.launch {
@@ -408,6 +413,9 @@ class HomeViewModel : ViewModel() {
             try {
                 _isLoading.value = true
                 _showSubCategories.value = true
+                currentCategory = categoryId
+                categoryPage = 1
+                isCategoryLastPage = false
                 
                 val response = apiService.getCategoryPage(categoryId)
                 // 解析过滤选项
@@ -416,10 +424,45 @@ class HomeViewModel : ViewModel() {
                 val movies = HtmlParser.parseMovieList(response)
                 _movies.value = movies
                 
+                if (movies.isEmpty()) {
+                    isCategoryLastPage = true
+                }
+                
             } catch (e: Exception) {
                 Log.e("HomeViewModel", "Error loading category $categoryId", e)
             } finally {
                 _isLoading.value = false
+            }
+        }
+    }
+
+    fun loadCategoryNextPage() {
+        if (isCategoryLastPage || isLoadingCategoryNextPage || currentCategory == 0) {
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                isLoadingCategoryNextPage = true
+                categoryPage++
+                
+                Log.d("HomeViewModel", "Loading category $currentCategory page $categoryPage")
+                val response = apiService.getCategoryNextPage(currentCategory, categoryPage)
+                val newMovies = HtmlParser.parseMovieList(response)
+                Log.d("HomeViewModel", "Loaded ${newMovies.size} new movies")
+                
+                if (newMovies.isEmpty()) {
+                    isCategoryLastPage = true
+                    Log.d("HomeViewModel", "Reached last page")
+                    return@launch
+                }
+                
+                _movies.value = _movies.value + newMovies
+            } catch (e: Exception) {
+                Log.e("HomeViewModel", "Error loading next page", e)
+                categoryPage--  // 恢复页码，以便重试
+            } finally {
+                isLoadingCategoryNextPage = false
             }
         }
     }

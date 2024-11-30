@@ -45,6 +45,12 @@ import android.view.WindowManager
 import androidx.compose.ui.platform.LocalView
 import android.content.Context
 import kotlinx.coroutines.*
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLSocketFactory
+import javax.net.ssl.X509TrustManager
+import androidx.media3.datasource.okhttp.OkHttpDataSource
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -63,9 +69,30 @@ fun VideoPlayerScreen(
     var playerView by remember { mutableStateOf<PlayerView?>(null) }
     var isControllerShowing by remember { mutableStateOf(false) }
     
+    // 创建信任所有证书的 OkHttpClient
+    val okHttpClient = remember {
+        OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
+            .hostnameVerifier { _, _ -> true }
+            .sslSocketFactory(
+                TrustAllCerts.createSSLSocketFactory(),
+                TrustAllCerts.trustAllManager
+            )
+            .build()
+    }
+
+    // 创建 ExoPlayer 并配置 OkHttpDataSource
     val exoPlayer = remember {
         ExoPlayer.Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(DefaultHttpDataSource.Factory()))
+            .setMediaSourceFactory(
+                DefaultMediaSourceFactory(context)
+                    .setDataSourceFactory(
+                        OkHttpDataSource.Factory(okHttpClient)
+                    )
+            )
             .build().apply {
                 repeatMode = Player.REPEAT_MODE_OFF
                 playWhenReady = true
@@ -252,5 +279,19 @@ fun VideoPlayerScreen(
             delay(1000)
             playerView?.hideController()
         }
+    }
+}
+
+private object TrustAllCerts {
+    val trustAllManager = object : X509TrustManager {
+        override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+        override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+        override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+    }
+
+    fun createSSLSocketFactory(): SSLSocketFactory {
+        val sslContext = SSLContext.getInstance("TLS")
+        sslContext.init(null, arrayOf(trustAllManager), SecureRandom())
+        return sslContext.socketFactory
     }
 }

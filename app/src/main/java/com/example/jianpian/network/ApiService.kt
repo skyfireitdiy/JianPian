@@ -42,4 +42,10 @@ interface ApiService {
 
     @GET
     suspend fun getFilterPage(@Url url: String): String
+
+    @GET("jplist/{category}-{page}.html")
+    suspend fun getCategoryNextPage(
+        @Path("category") category: Int,
+        @Path("page") page: Int
+    ): String
 } 

@@ -472,12 +472,32 @@ fun HomeScreen(
                                 MovieCard(
                                     movie = movie,
                                     onClick = {
+                                        Log.d("HomeScreen", "Movie clicked: ${movie.title}")
                                         viewModel.getMovieDetail(movie.id)
                                         showDetail = true
                                     },
                                     onLongClick = { },
                                     modifier = Modifier
                                 )
+                            }
+                        }
+
+                        // 在影片列表的最后添加加载更多
+                        if (showSubCategories && !isLoading) {
+                            item(span = { TvGridItemSpan(6) }) {
+                                LaunchedEffect(Unit) {
+                                    viewModel.loadCategoryNextPage()
+                                }
+                                if (isLoading) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(50.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text("加载中...", color = Color.White)
+                                    }
+                                }
                             }
                         }
                     }
@@ -740,6 +760,45 @@ fun HomeScreen(
                     }
                 }
             }
+        }
+    }
+
+    when {
+        currentEpisode != null && currentMovie != null -> {
+            VideoPlayerScreen(
+                movieDetail = currentMovie!!,
+                currentEpisode = currentEpisode!!,
+                onPreviousEpisode = {
+                    val index = currentMovie!!.episodes.indexOf(currentEpisode)
+                    if (index > 0) {
+                        currentEpisode = currentMovie!!.episodes[index - 1]
+                    }
+                },
+                onNextEpisode = {
+                    val index = currentMovie!!.episodes.indexOf(currentEpisode)
+                    if (index < currentMovie!!.episodes.size - 1) {
+                        currentEpisode = currentMovie!!.episodes[index + 1]
+                    }
+                },
+                onBackClick = {
+                    currentEpisode = null
+                    showDetail = true
+                }
+            )
+        }
+        showDetail && currentMovie != null -> {
+            DetailScreen(
+                movieDetail = currentMovie!!,
+                onPlayClick = { episode ->
+                    currentEpisode = episode
+                },
+                onBackClick = {
+                    showDetail = false
+                }
+            )
+        }
+        else -> {
+            // ... 其他代码保持不变 ...
         }
     }
 } 
