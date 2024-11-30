@@ -361,4 +361,25 @@ class HomeViewModel : ViewModel() {
     fun clearSearchResults() {
         _movies.value = emptyList()
     }
+
+    fun searchByCategory(categoryId: Int) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                currentPage = 1
+                currentKeyword = ""
+                isLastPage = false
+                
+                // 构建分类URL
+                val response = apiService.getCategoryMovies(categoryId, 1)
+                val movies = HtmlParser.parseMovieList(response)
+                _movies.value = movies
+                
+            } catch (e: Exception) {
+                Log.e("HomeViewModel", "Error loading category $categoryId", e)
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
 } 

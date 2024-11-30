@@ -154,6 +154,7 @@ fun HomeScreen(
 ) {
     val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
+    var isSearchFocused by remember { mutableStateOf(false) }
     val movies by viewModel.movies.collectAsState()
     val histories by viewModel.histories.collectAsState()
     val favorites by viewModel.favorites.collectAsState()
@@ -317,9 +318,26 @@ fun HomeScreen(
                         .fillMaxSize()
                         .padding(16.dp)
                 ) {
-                    // Search bar
-                    var isSearchFocused by remember { mutableStateOf(false) }
-    
+                    // 分类按钮行
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        horizontalArrangement = Arrangement.Start
+                    ) {
+                        listOf("电影", "电视剧", "综艺", "动漫").forEachIndexed { index, category ->
+                            Button(
+                                onClick = {
+                                    viewModel.searchByCategory(index + 1)
+                                },
+                                modifier = Modifier.padding(end = 8.dp)
+                            ) {
+                                Text(category)
+                            }
+                        }
+                    }
+
+                    // 搜索栏
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()

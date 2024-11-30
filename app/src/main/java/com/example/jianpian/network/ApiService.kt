@@ -29,4 +29,10 @@ interface ApiService {
     
     @GET("/")
     suspend fun getHomePage(): String
+
+    @GET("jplb/{category}--------{page}---.html")
+    suspend fun getCategoryMovies(
+        @Path("category") category: Int,
+        @Path("page") page: Int
+    ): String
 } 
